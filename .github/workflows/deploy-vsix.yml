@@ -1,0 +1,70 @@
+name: Build and Deploy VSIX
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        # fetch-depth 0 is needed for git operations to work correctly
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Increment Version
+        id: versioning
+        run: |
+          # Increment patch version (force needed if npm install dirty files)
+          npm version patch -m "Bump version to %s [skip ci]" --force
+          
+          # Get the new version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          # Push the changes and tags
+          # Using GITHUB_TOKEN directly for auth
+          git push origin main --follow-tags
+
+      - name: Run Build
+        run: npm run compile
+
+      - name: Package Extension
+        run: npx @vscode/vsce package
+
+      - name: Upload VSIX Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openedge-abl-linter-vsix-${{ steps.versioning.outputs.VERSION }}
+          path: '*.vsix'
+          retention-days: 7
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.versioning.outputs.VERSION }}
+          name: Release v${{ steps.versioning.outputs.VERSION }}
+          files: '*.vsix'
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

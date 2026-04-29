@@ -1,0 +1,6 @@
+node_modules
+compile-server/node_modules
+dist
+out
+*.vsix
+*.txt
