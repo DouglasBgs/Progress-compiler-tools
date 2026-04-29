@@ -2,7 +2,7 @@
   "name": "progress-compiler-tools",
   "displayName": "Progress Compiler Tools",
   "description": "Ferramentas para compilação de código OpenEdge ABL",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "douglasbarbosa",
   "repository": {
     "type": "git",
