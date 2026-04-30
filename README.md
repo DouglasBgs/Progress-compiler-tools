@@ -15,6 +15,8 @@ Extensão para Visual Studio Code que oferece análise estática de código **Op
 - [Como Usar](#-como-usar)
   - [Linter em Tempo Real](#linter-em-tempo-real)
   - [Compilação Remota](#compilação-remota)
+  - [Compilação de Múltiplos Fontes](#compilação-de-múltiplos-fontes)
+  - [Compilação via Git (Source Control)](#compilação-via-git-source-control)
   - [Compilação de Patches](#compilação-de-patches)
   - [Gerenciar Servidores de Destino](#gerenciar-servidores-de-destino)
 - [Estrutura de Armazenamento de Servidores](#-estrutura-de-armazenamento-de-servidores)
@@ -84,11 +86,8 @@ Após compilação bem-sucedida, você escolhe onde salvar os binários:
 ### 1. Instalar a extensão no VSCode
 
 ```bash
-# Via linha de comando
-code --install-extension douglasbarbosa.openedge-abl-linter
-
-# Ou baixe a versão mais recente (.vsix) direto do GitHub:
-# https://github.com/DouglasBgs/progress-compiler/releases
+# Baixe a versão mais recente (.vsix) direto do GitHub:
+# https://github.com/DouglasBgs/Progress-compiler-tools/releases
 
 # No VSCode: Extensions (Ctrl+Shift+X) → ··· → Install from VSIX...
 ```
@@ -106,7 +105,7 @@ Sempre que um novo commit é enviado para a branch `main`:
 3. **Build**: O pacote `.vsix` é gerado utilizando Node.js 24.
 4. **Deploy**: Uma nova **Release** é publicada automaticamente no GitHub contendo o arquivo de instalação.
 
-**🔗 Repositório Oficial:** [GitHub - DouglasBgs/progress-compiler](https://github.com/DouglasBgs/progress-compiler)
+**🔗 Repositório Oficial:** [GitHub - DouglasBgs/Progress-compiler-tools](https://github.com/DouglasBgs/Progress-compiler-tools)
 
 ---
 
@@ -240,7 +239,7 @@ Nenhuma configuração adicional é necessária.
 
 #### Opção 1: Menu de Contexto (Explorer)
 
-1. Selecione um ou mais arquivos `.p` / `.w` / `.cls` no Explorer  
+1. Selecione um ou mais arquivos `.p` / `.w` / `.cls` / `.i` no Explorer  
    (use `Ctrl+Click` para selecionar múltiplos)
 2. Clique com o botão direito → **ABL Compilar**
 3. Siga o assistente guiado
@@ -278,6 +277,58 @@ Nenhuma configuração adicional é necessária.
 | Servidor Externo | `src/modulo/programa.p` | `modulo/programa.r` (sem prefixo `src/`) |
 
 > O prefixo `src/` é removido automaticamente ao enviar para servidores externos, permitindo deploy direto na estrutura de produção.
+
+---
+
+### Compilação de Múltiplos Fontes
+
+A extensão suporta a **compilação em lote** de múltiplos arquivos-fonte selecionados diretamente pelo Explorer do VSCode.
+
+#### Como usar
+
+1. No **Explorer** do VSCode, selecione os arquivos desejados:  
+   - Mantenha `Ctrl` pressionado e clique em cada arquivo para seleção individual  
+   - Ou use `Shift+Click` para selecionar um intervalo contínuo de arquivos
+2. Clique com o **botão direito** sobre a seleção
+3. Selecione **ABL Compilar** no menu de contexto
+4. Escolha o banco de dados e o destino dos `.r` normalmente
+
+> Todos os arquivos selecionados serão enviados ao servidor de compilação em uma **única requisição**, otimizando o tempo total de compilação.
+
+#### Extensões suportadas para seleção múltipla
+
+| Extensão | Tipo |
+|----------|------|
+| `.p` | Procedure |
+| `.w` | Window / Persistent Procedure |
+| `.cls` | Classe ABL |
+| `.i` | Include |
+
+---
+
+### Compilação via Git (Source Control)
+
+Além do Explorer, é possível compilar fontes diretamente pela **aba de Source Control (Git)** do VSCode. Isso é especialmente útil para compilar rapidamente os arquivos que foram modificados no controle de versão.
+
+#### Como usar
+
+1. Abra a aba **Source Control** (`Ctrl+Shift+G`)
+2. Na seção **Changes**, selecione os arquivos que deseja compilar:  
+   - Clique no arquivo para selecionar um único fonte  
+   - Use `Ctrl+Click` para selecionar múltiplos arquivos modificados
+3. Clique com o **botão direito** sobre a seleção
+4. Selecione **ABL Compilar** no menu de contexto
+5. Siga o assistente normalmente (banco de dados → destino dos `.r`)
+
+> O botão **ABL Compilar** também aparece como um ícone **inline** ao lado de cada arquivo na lista de mudanças, permitindo compilar rapidamente um único fonte com um clique.
+
+#### Cenários de uso
+
+| Cenário | Ação |
+|---------|------|
+| Compilar um fonte modificado | Clique no ícone inline ao lado do arquivo na aba Git |
+| Compilar vários fontes alterados | Selecione múltiplos com `Ctrl+Click` → botão direito → **ABL Compilar** |
+| Compilar todas as mudanças | Clique direito no grupo **Changes** → **ABL Compilar** |
 
 ---
 
@@ -524,4 +575,5 @@ npm run watch
 
 ## 📄 Licença
 
-Uso interno. Todos os direitos reservados.
+//descrever a licença MIT aqui
+

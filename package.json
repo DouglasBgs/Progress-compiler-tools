@@ -62,7 +62,7 @@
         {
           "command": "abl-linter.compileRemote",
           "group": "2_workspace",
-          "when": "resourceExtname == .p || resourceExtname == .w || resourceExtname == .cls || resourceExtname == .i || resourceExtname == .i*"
+          "when": "resourceExtname == .p || resourceExtname == .w || resourceExtname == .cls || resourceExtname =~ /^\\.i\\d*$/"
         }
       ],
       "scm/resourceState/context": [
