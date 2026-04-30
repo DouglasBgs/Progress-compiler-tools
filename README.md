@@ -71,6 +71,7 @@ Após compilação bem-sucedida, você escolhe onde salvar os binários:
 ### Cliente (VSCode)
 - Visual Studio Code `>= 1.85.0`
 - Workspace aberto (pasta de projeto)
+- Os arquivos-fonte ABL devem estar dentro de uma pasta **`src/`** na raiz do workspace
 
 ### Servidor de Compilação
 - Node.js `>= 18`
@@ -269,7 +270,31 @@ Nenhuma configuração adicional é necessária.
 └────────────────────────────────────────────────┘
 ```
 
+#### Estrutura de Pastas do Workspace
+
+> ⚠️ **Importante:** Os arquivos-fonte ABL precisam estar obrigatoriamente dentro de uma pasta **`src/`** na raiz do workspace para que a compilação funcione corretamente.
+
+A extensão utiliza a pasta `src/` como referência para montar os caminhos de compilação e destino dos binários `.r`. A estrutura esperada é:
+
+```
+meu-projeto/                   ← Workspace aberto no VSCode
+├── src/                       ← Pasta obrigatória para os fontes
+│   ├── modulo-a/
+│   │   ├── programa1.p
+│   │   └── programa2.w
+│   ├── modulo-b/
+│   │   ├── classe.cls
+│   │   └── include.i
+│   └── utils/
+│       └── helper.p
+└── ...
+```
+
+Arquivos fora da pasta `src/` **não serão reconhecidos** pela compilação remota.
+
 #### Comportamento do caminho dos arquivos `.r`
+
+Após a compilação, o destino dos binários `.r` varia conforme a opção escolhida:
 
 | Destino | Exemplo de entrada | Exemplo de saída `.r` |
 |---------|-------------------|----------------------|
