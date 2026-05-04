@@ -9,6 +9,7 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import * as http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import { logger } from './logger';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -33,6 +34,7 @@ interface CompileJob {
     status: 'queued' | 'processing' | 'completed' | 'error';
     result?: any;
     errorMsg?: string;
+    createdAt: number;
 }
 
 // Queue system for scalability
@@ -51,13 +53,19 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
 
     if (jobId) {
         clients.set(jobId, ws);
-        ws.on('close', () => clients.delete(jobId));
-        console.log(`[WS] Client connected for job: ${jobId}`);
+        ws.on('close', () => {
+            clients.delete(jobId);
+            logger.debug('WebSocket', `Conexão fechada para job ${jobId}`);
+        });
+        logger.info('WebSocket', `Cliente conectado`, { jobId });
         // Se o job já terminou antes do websocket conectar
         const job = jobResults.get(jobId);
         if (job && (job.status === 'completed' || job.status === 'error')) {
+            logger.info('WebSocket', `Job já finalizado, notificando cliente imediatamente`, { jobId, status: job.status });
             notifyClient(jobId, { status: job.status, jobId, errorMsg: job.errorMsg });
         }
+    } else {
+        logger.warn('WebSocket', `Conexão recebida sem jobId na URL`, { url: req.url });
     }
 });
 
@@ -65,12 +73,19 @@ function notifyClient(jobId: string, payload: any) {
     const ws = clients.get(jobId);
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(payload));
+        logger.debug('WebSocket', `Notificação enviada`, { jobId, status: payload.status });
+    } else {
+        logger.debug('WebSocket', `Cliente não disponível para notificação`, { jobId });
     }
 }
 
 // Worker loop
 async function processQueue() {
-    if (activeJobs >= MAX_CONCURRENT_JOBS || jobQueue.length === 0) {
+    if (jobQueue.length === 0) {
+        return;
+    }
+    if (activeJobs >= MAX_CONCURRENT_JOBS) {
+        logger.info('Queue', `Limite de jobs ativos atingido, aguardando vaga`, { activeJobs, maxConcurrent: MAX_CONCURRENT_JOBS, pendingJobs: jobQueue.length });
         return;
     }
 
@@ -78,22 +93,30 @@ async function processQueue() {
     const job = jobQueue.shift()!;
     job.status = 'processing';
     jobResults.set(job.jobId, job);
+
+    const waitTimeMs = Date.now() - job.createdAt;
     
     notifyClient(job.jobId, { status: 'processing', jobId: job.jobId });
-    console.log(`[Job ${job.jobId}][Queue] - Iniciando processamento. (Ativos: ${activeJobs})`);
+    logger.info('Queue', `Iniciando processamento do job`, { jobId: job.jobId, activeJobs, pendingJobs: jobQueue.length, waitTimeMs, filesCount: job.files.length, dbType: job.dbType });
+
+    const startTime = Date.now();
 
     try {
         await executeCompileJob(job);
         job.status = 'completed';
         notifyClient(job.jobId, { status: 'completed', jobId: job.jobId });
-        console.log(`[Job ${job.jobId}][Queue] - Finalizado com sucesso.`);
+
+        const compiledCount = job.result?.compiledFiles?.length ?? 0;
+        const errorCount = job.result?.errors?.length ?? 0;
+        logger.timed('Queue', `Job finalizado com sucesso`, startTime, { jobId: job.jobId, compiledFiles: compiledCount, errors: errorCount });
     } catch (err: any) {
         job.status = 'error';
         job.errorMsg = err.message || 'Erro desconhecido';
         notifyClient(job.jobId, { status: 'error', jobId: job.jobId, errorMsg: job.errorMsg });
-        console.error(`[Job ${job.jobId}][Queue] - Falhou:`, err);
+        logger.error('Queue', `Job falhou`, { jobId: job.jobId, error: job.errorMsg, durationMs: Date.now() - startTime });
     } finally {
         activeJobs--;
+        logger.debug('Queue', `Slot liberado`, { activeJobs, pendingJobs: jobQueue.length });
         // Processa o próximo da fila iterativamente
         setTimeout(processQueue, 0);
     }
@@ -101,8 +124,13 @@ async function processQueue() {
 
 async function executeCompileJob(job: CompileJob): Promise<void> {
     return new Promise((resolve, reject) => {
+        const ctx = `Compile:${job.jobId.substring(0, 8)}`;
+        const jobStart = Date.now();
+
         const baseTempPath = path.join(__dirname, '..', 'temp', job.jobId);
         const resultadoPath = path.join(baseTempPath, 'resultado');
+
+        logger.info(ctx, `Preparando diretórios temporários`, { baseTempPath });
 
         if (!fs.existsSync(baseTempPath)) fs.mkdirSync(baseTempPath, { recursive: true });
         if (!fs.existsSync(resultadoPath)) fs.mkdirSync(resultadoPath, { recursive: true });
@@ -110,6 +138,7 @@ async function executeCompileJob(job: CompileJob): Promise<void> {
         const ablSources: string[] = [];
 
         // Extraimos arquivos do job para o disco
+        const extractStart = Date.now();
         for (const file of job.files) {
             const fullPath = path.join(baseTempPath, file.relativePath);
             const dir = path.dirname(fullPath);
@@ -125,6 +154,7 @@ async function executeCompileJob(job: CompileJob): Promise<void> {
                 ablSources.push(file.relativePath);
             }
         }
+        logger.timed(ctx, `Arquivos extraídos para disco`, extractStart, { totalFiles: job.files.length, ablSources: ablSources.length });
 
         const compileScriptPath = path.join(baseTempPath, '_mass_compile.p');
         const reportPath = path.join(baseTempPath, 'compile_report.json');
@@ -140,7 +170,7 @@ PROPATH = "${baseTempPath.replace(/\\/g, '/')} " + "," + PROPATH.
 OUTPUT TO "${reportPath.replace(/\\/g, '/')}" CONVERT TARGET "UTF-8".
 PUT UNFORMATTED "[" SKIP.
 `;
-
+    
         for (let idx = 0; idx < ablSources.length; idx++) {
             const src = ablSources[idx];
             const unixPath = src.replace(/\\/g, '/');
@@ -194,6 +224,7 @@ QUIT.
 `;
 
         fs.writeFileSync(compileScriptPath, compileScriptContent);
+        logger.info(ctx, `Script de compilação gerado`, { scriptPath: compileScriptPath, sourcesCount: ablSources.length });
 
         let finalPfPath = '';
         let finalIniPath = '';
@@ -208,6 +239,7 @@ QUIT.
                 pfContent += `\n-PROPATH ${unixBaseTempPath}\n`;
             }
             fs.writeFileSync(finalPfPath, pfContent);
+            logger.info(ctx, `Arquivo .pf preparado`, { originalPf: job.dbSettings.pf, finalPf: finalPfPath });
         }
 
         if (job.dbSettings.ini && fs.existsSync(job.dbSettings.ini)) {
@@ -222,6 +254,7 @@ QUIT.
                 iniContent = `[Startup]\nPROPATH=${unixBaseTempPath}\n\n` + iniContent;
             }
             fs.writeFileSync(finalIniPath, iniContent);
+            logger.info(ctx, `Arquivo .ini preparado`, { originalIni: job.dbSettings.ini, finalIni: finalIniPath });
         }
 
         const strPf = finalPfPath ? `-pf "${finalPfPath}"` : '';
@@ -237,14 +270,26 @@ QUIT.
 
         const command = `${compilerCmd} -b ${strPf} ${strIni} -p "${compileScriptPath}"`;
 
+        logger.info(ctx, `Executando compilador OpenEdge`, { command, cwd: baseTempPath, dlcPath });
+        const execStart = Date.now();
+
         exec(command, { cwd: baseTempPath }, (error) => {
-            if (error) console.error(`[Job ${job.jobId}] Erro ao compilar:`, error);
+            if (error) {
+                logger.error(ctx, `Processo do compilador retornou erro`, { error: error.message, code: error.code, signal: error.signal });
+            }
+
+            logger.timed(ctx, `Processo do compilador finalizado`, execStart);
 
             let reportData: any[] = [];
             if (fs.existsSync(reportPath)) {
                 try {
                     reportData = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-                } catch (err) { }
+                    logger.info(ctx, `Relatório de compilação lido`, { entriesCount: reportData.length });
+                } catch (err: any) {
+                    logger.error(ctx, `Falha ao ler relatório de compilação`, { reportPath, error: err.message });
+                }
+            } else {
+                logger.warn(ctx, `Relatório de compilação não encontrado`, { reportPath });
             }
 
             const compiledFiles: FilePayload[] = [];
@@ -273,8 +318,17 @@ QUIT.
             
             job.result = { compiledFiles, errors: compilationErrors };
 
-            // O Node.js não apaga a pasta base agora. A limpeza ocorre após o download do /result ou via trigger periódica
-            fs.rmSync(baseTempPath, { recursive: true, force: true });
+            logger.info(ctx, `Resultado da compilação processado`, { compiledOk: compiledFiles.length, errors: compilationErrors.length });
+
+            // Limpeza de arquivos temporários
+            try {
+                fs.rmSync(baseTempPath, { recursive: true, force: true });
+                logger.debug(ctx, `Diretório temporário removido`, { baseTempPath });
+            } catch (cleanupErr: any) {
+                logger.warn(ctx, `Falha ao remover diretório temporário`, { baseTempPath, error: cleanupErr.message });
+            }
+
+            logger.timed(ctx, `Job de compilação concluído (total)`, jobStart, { compiledOk: compiledFiles.length, errors: compilationErrors.length });
             resolve();
         });
     });
@@ -282,12 +336,16 @@ QUIT.
 
 // Queue API
 app.post('/compile', async (req: Request, res: Response) => {
+    const requestStart = Date.now();
     try {
         const files: FilePayload[] = req.body.files;
         const dbType: string = req.body.dbType;
         const patchInfo = req.body.patchInfo; // { patchVersion: string, subType: string }
 
+        logger.info('API', `POST /compile recebido`, { filesCount: files?.length, dbType, hasPatchInfo: !!patchInfo, ip: req.ip });
+
         if (!files || !Array.isArray(files)) {
+            logger.warn('API', `Payload inválido recebido`, { body: typeof req.body });
             return res.status(400).json({ status: 'error', message: 'Payload inválido.' });
         }
         
@@ -295,6 +353,8 @@ app.post('/compile', async (req: Request, res: Response) => {
         let serverConfig: any = {};
         if (fs.existsSync(configPath)) {
             serverConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        } else {
+            logger.warn('Config', `Arquivo server.config.json não encontrado`, { configPath });
         }
 
         let dbSettings: any = null;
@@ -302,6 +362,7 @@ app.post('/compile', async (req: Request, res: Response) => {
         if (dbType === 'Patch' && patchInfo) {
             const pConfig = serverConfig.patchConfig;
             if (!pConfig) {
+                logger.error('API', `Configuração patchConfig não encontrada no server.config.json`);
                 return res.status(400).json({ status: 'error', message: `A configuração "patchConfig" não foi encontrada no server.config.json.`});
             }
             
@@ -309,6 +370,7 @@ app.post('/compile', async (req: Request, res: Response) => {
             const patchBaseDir = path.join(pConfig.baseDir, patchInfo.patchVersion, patchInfo.subType);
             
             if (!fs.existsSync(patchBaseDir)) {
+                logger.error('API', `Diretório do patch não encontrado`, { patchBaseDir, patchVersion: patchInfo.patchVersion, subType: patchInfo.subType });
                 return res.status(404).json({ 
                     status: 'error', 
                     message: `A versão do patch "${patchInfo.patchVersion}" (${patchInfo.subType}) não está disponível ou o diretório não foi encontrado.` 
@@ -324,12 +386,16 @@ app.post('/compile', async (req: Request, res: Response) => {
                 ini: iniPath
             };
 
-            console.log(`[Job][Patch] Resolvendo para Patch: ${patchInfo.patchVersion} (${patchInfo.subType})`);
+            logger.info('API', `Configuração de Patch resolvida`, { patchVersion: patchInfo.patchVersion, subType: patchInfo.subType, pfPath, iniPath });
         } else {
             dbSettings = serverConfig.databases?.[dbType];
+            if (dbSettings) {
+                logger.info('API', `Configuração de banco de dados carregada`, { dbType, pf: dbSettings.pf, ini: dbSettings.ini });
+            }
         }
 
         if (!dbSettings) {
+            logger.error('API', `Banco de dados ou patch não mapeado`, { dbType });
              return res.status(400).json({ status: 'error', message: `O banco de dados ou patch "${dbType}" não está mapeado no server.config.json.`});
         }
 
@@ -339,10 +405,13 @@ app.post('/compile', async (req: Request, res: Response) => {
             files,
             dbType,
             dbSettings,
-            status: 'queued'
+            status: 'queued',
+            createdAt: Date.now()
         });
 
-        console.log(`[Job ${jobId}][Queue] - Job Recebido e Enfileirado (${files.length} arquivos)`);
+        const fileNames = files.map(f => f.relativePath);
+        logger.info('API', `Job criado e enfileirado`, { jobId, filesCount: files.length, files: fileNames, dbType, queueSize: jobQueue.length, activeJobs });
+        logger.timed('API', `Resposta 202 enviada ao cliente`, requestStart, { jobId });
         
         // Retorna status 202 (Accepted) para o cliente fechar a requisição rápida e abrir o websocket
         res.status(202).json({ status: 'queued', jobId });
@@ -350,6 +419,7 @@ app.post('/compile', async (req: Request, res: Response) => {
         // Trigger Queue
         setTimeout(processQueue, 0);
     } catch (e: any) {
+        logger.error('API', `Erro inesperado no POST /compile`, { error: e.message, stack: e.stack });
         res.status(500).json({ status: 'error', message: e.message });
     }
 });
@@ -359,13 +429,20 @@ app.get('/result/:jobId', (req: Request, res: Response) => {
     const jobId = req.params.jobId as string;
     const job = jobResults.get(jobId);
 
+    logger.info('API', `GET /result/${jobId}`, { found: !!job, status: job?.status, ip: req.ip });
+
     if (!job) {
+        logger.warn('API', `Job não encontrado ou expirado`, { jobId });
         return res.status(404).json({ status: 'error', message: 'Job não encontrado ou expirado.' });
     }
 
     if (job.status !== 'completed' && job.status !== 'error') {
+        logger.warn('API', `Tentativa de download de job não finalizado`, { jobId, status: job.status });
         return res.status(400).json({ status: 'error', message: `Job está com status: ${job.status}` });
     }
+
+    const compiledCount = job.result?.compiledFiles?.length ?? 0;
+    const errorCount = job.result?.errors?.length ?? 0;
 
     res.json({
         status: job.status,
@@ -376,9 +453,41 @@ app.get('/result/:jobId', (req: Request, res: Response) => {
 
     // Clean up memory
     jobResults.delete(jobId);
-    console.log(`[Job ${jobId}][Queue] - Payload de resultado baixado pelo cliente e deletado em memoria.`);
+    logger.info('API', `Resultado entregue e removido da memória`, { jobId, compiledFiles: compiledCount, errors: errorCount });
 });
 
 server.listen(PORT, () => {
-    console.log(`ABL Compiler Server rodando na porta ${PORT} com Queue & WebSockets`);
+    logger.info('Server', `═══════════════════════════════════════════════════`);
+    logger.info('Server', `ABL Compile Server iniciado com sucesso`);
+    logger.info('Server', `Porta: ${PORT} | Max Jobs: ${MAX_CONCURRENT_JOBS}`);
+    logger.info('Server', `PID: ${process.pid} | Node: ${process.version} | Plataforma: ${process.platform}`);
+    logger.info('Server', `DLC: ${process.env.DLC || '(não definido)'}`);
+    logger.info('Server', `LOG_LEVEL: ${process.env.LOG_LEVEL || 'info (padrão)'}`);
+    logger.info('Server', `═══════════════════════════════════════════════════`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    logger.info('Server', `Sinal SIGINT recebido, encerrando...`, { activeJobs, pendingJobs: jobQueue.length });
+    server.close(() => {
+        logger.info('Server', `Servidor encerrado com sucesso`);
+        process.exit(0);
+    });
+});
+
+process.on('SIGTERM', () => {
+    logger.info('Server', `Sinal SIGTERM recebido (PM2 stop/restart), encerrando...`, { activeJobs, pendingJobs: jobQueue.length });
+    server.close(() => {
+        logger.info('Server', `Servidor encerrado com sucesso`);
+        process.exit(0);
+    });
+});
+
+process.on('uncaughtException', (err) => {
+    logger.error('Server', `EXCEÇÃO NÃO CAPTURADA`, { error: err.message, stack: err.stack });
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+    logger.error('Server', `PROMISE REJECTION NÃO TRATADA`, { reason: reason?.message || String(reason), stack: reason?.stack });
 });
