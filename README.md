@@ -224,6 +224,23 @@ Ou configure manualmente via `Arquivo → Preferências → Configurações`:
 
 > O URL é salvo globalmente no `settings.json` do usuário e funciona em qualquer workspace.
 
+### Linting em Tempo Real
+
+Por padrão, a extensão analisa o código automaticamente ao abrir e salvar arquivos ABL. Para **desabilitar** essa análise em tempo real, defina a configuração:
+
+```json
+{
+  "abl-linter.enableRealTimeLinting": false
+}
+```
+
+| Configuração | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `abl-linter.compilerUrl` | `string` | `""` | URL do servidor de compilação ABL |
+| `abl-linter.enableRealTimeLinting` | `boolean` | `true` | Habilita/desabilita a correção de código em tempo real ao abrir e salvar arquivos ABL |
+
+> A alteração é **reativa**: ao desabilitar, todos os diagnósticos são limpos imediatamente; ao reabilitar, todos os arquivos ABL abertos são reanalisados — **sem necessidade de recarregar o VSCode**.
+
 ---
 
 ## 📖 Como Usar
@@ -232,7 +249,9 @@ Ou configure manualmente via `Arquivo → Preferências → Configurações`:
 
 O linter é ativado **automaticamente** ao abrir ou salvar qualquer arquivo com extensão `.p`, `.w`, `.cls` ou `.i`. Os erros aparecem na aba **Problems** (`Ctrl+Shift+M`) do VSCode.
 
-Nenhuma configuração adicional é necessária.
+Nenhuma configuração adicional é necessária para começar a usar.
+
+> 💡 **Dica:** Caso o linting em tempo real esteja impactando a performance ou não seja desejado, é possível desabilitá-lo via configuração `abl-linter.enableRealTimeLinting`. Consulte a seção [Configuração da Extensão no VSCode](#-configuração-da-extensão-no-vscode) para mais detalhes.
 
 ---
 

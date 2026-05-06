@@ -94,6 +94,11 @@
           "type": "string",
           "default": "",
           "description": "URL do Servidor de Aplicação de compilação ABL (Node API)."
+        },
+        "abl-linter.enableRealTimeLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilita ou desabilita a correção de código em tempo real ao abrir e salvar arquivos Progress ABL."
         }
       }
     },

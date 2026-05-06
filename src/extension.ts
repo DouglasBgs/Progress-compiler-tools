@@ -31,9 +31,10 @@ export function activate(context: vscode.ExtensionContext) {
         return ablExtensions.some(ext => fileName.endsWith(ext));
     }
 
-    // Executa análise ao salvar o arquivo
+    // Executa análise ao salvar o arquivo (se habilitado)
     const onSaveDisposable = vscode.workspace.onDidSaveTextDocument((document) => {
-        if (isAblDocument(document)) {
+        const lintEnabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);
+        if (lintEnabled && isAblDocument(document)) {
             const diagnostics = analyzeDocument(document);
             diagnosticCollection.set(document.uri, diagnostics);
         }
@@ -51,13 +52,37 @@ export function activate(context: vscode.ExtensionContext) {
     // Registra o comando de gerenciamento de servidores de destino
     registerManageServersCommand(context);
 
-    // Analisa documentos ABL já abertos (ao ativar a extensão)
-    vscode.workspace.textDocuments.forEach((document) => {
-        if (isAblDocument(document)) {
-            const diagnostics = analyzeDocument(document);
-            diagnosticCollection.set(document.uri, diagnostics);
-        }
-    });
+    // Analisa documentos ABL já abertos (ao ativar a extensão), se habilitado
+    const initialLintEnabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);
+    if (initialLintEnabled) {
+        vscode.workspace.textDocuments.forEach((document) => {
+            if (isAblDocument(document)) {
+                const diagnostics = analyzeDocument(document);
+                diagnosticCollection.set(document.uri, diagnostics);
+            }
+        });
+    }
+
+    // Reage a mudanças na configuração de linting em tempo real
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration('abl-linter.enableRealTimeLinting')) {
+                const enabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);
+                if (enabled) {
+                    // Re-analisa todos os documentos ABL abertos
+                    vscode.workspace.textDocuments.forEach((document) => {
+                        if (isAblDocument(document)) {
+                            const diagnostics = analyzeDocument(document);
+                            diagnosticCollection.set(document.uri, diagnostics);
+                        }
+                    });
+                } else {
+                    // Limpa todos os diagnósticos quando desabilitado
+                    diagnosticCollection.clear();
+                }
+            }
+        })
+    );
 }
 
 export async function getOrPromptCompilerUrl(): Promise<string> {
