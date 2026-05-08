@@ -157,28 +157,36 @@ DLC=C:\dlc128
 
 Localizado em `compile-server/server.config.json`. Define os parâmetros de conexão para cada banco de dados suportado. Cada banco precisa de um arquivo `.pf` (parameter file) e opcionalmente um `.ini`.
 
+Os caminhos de `.pf` e `.ini` suportam o placeholder **`{repository}`**, que será substituído dinamicamente pelo repositório de compilação enviado pela extensão (ex: `EMS2.08`, `CRM`, etc.).
+
 ```json
 {
+  "defaultRepository": "EMS2.08",
   "databases": {
     "Progress": {
-      "pf": "\\\\servidor\\share\\Compilacao\\Progress\\connect.pf",
-      "ini": "\\\\servidor\\share\\Compilacao\\Progress\\progress.ini"
+      "pf": "\\\\meu-servidor\\compilacao\\{repository}\\connect.pf",
+      "ini": "\\\\meu-servidor\\compilacao\\{repository}\\progress.ini"
     },
     "SQL Server": {
-      "pf": "\\\\servidor\\share\\Compilacao\\SQLServer\\connect.pf",
-      "ini": "\\\\servidor\\share\\Compilacao\\SQLServer\\progress.ini"
+      "pf": "\\\\meu-servidor\\compilacao\\sql\\{repository}\\connect.pf",
+      "ini": "\\\\meu-servidor\\compilacao\\sql\\{repository}\\progress.ini"
     },
     "Oracle": {
-      "pf": "\\\\servidor\\share\\Compilacao\\Oracle\\connect.pf",
-      "ini": "\\\\servidor\\share\\Compilacao\\Oracle\\progress.ini"
+      "pf": "\\\\meu-servidor\\compilacao\\oracle\\{repository}\\connect.pf",
+      "ini": "\\\\meu-servidor\\compilacao\\oracle\\{repository}\\progress.ini"
     }
   },
   "patchConfig": {
-    "baseDir": "\\\\servidor\\patches",
-    "baseShortcut": "\\\\servidor\\atalhos"
+    "baseDir": "\\\\meu-servidor\\arquivos\\patches",
+    "baseShortcut": "\\\\meu-servidor\\arquivos\\atalhos"
   }
 }
 ```
+
+| Campo | Descrição |
+|-------|-----------|
+| `defaultRepository` | Repositório padrão utilizado quando a extensão não envia o campo (retrocompatibilidade). |
+| `{repository}` | Placeholder que será substituído pelo valor do repositório escolhido na extensão. |
 
 > **Importante:** Apenas os bancos configurados aqui estarão disponíveis para seleção no VSCode. A chave `patchConfig` é obrigatória caso deseje utilizar a compilação no modo **Patch**.
 
@@ -190,7 +198,9 @@ O modo Patch resolve caminhos dinamicamente com base na versão informada.
 
 A lógica de busca de arquivos segue o padrão:
 - **PF**: `{baseDir}/{patchVersion}/{subType}/connect-ems2.pf`
-- **INI**: `{baseShortcut}/{versao_reduzida}/{subType}/EMS2.08/progress-12.ini`
+- **INI**: `{baseShortcut}/{versao_reduzida}/{subType}/{repository}/progress-12.ini`
+
+> O valor de `{repository}` é dinâmico e depende da configuração da extensão.
 
 
 ### Scripts disponíveis no servidor
@@ -218,7 +228,7 @@ Ou configure manualmente via `Arquivo → Preferências → Configurações`:
 
 ```json
 {
-  "abl-linter.compilerUrl": "http://192.168.1.100:8080/compile"
+  "abl-linter.compilerUrl": "http://meu-servidor:8080/compile"
 }
 ```
 
@@ -237,7 +247,22 @@ Por padrão, a extensão analisa o código automaticamente ao abrir e salvar arq
 | Configuração | Tipo | Padrão | Descrição |
 |---|---|---|---|
 | `abl-linter.compilerUrl` | `string` | `""` | URL do servidor de compilação ABL |
-| `abl-linter.enableRealTimeLinting` | `boolean` | `true` | Habilita/desabilita a correção de código em tempo real ao abrir e salvar arquivos ABL |
+| `abl-linter.enableRealTimeLinting` | `boolean` | `true` | Habilita/desabilita a correção de código em tempo real |
+| `abl-linter.enableCompilationRepository` | `boolean` | `false` | Habilita a seleção do repositório de compilação |
+| `abl-linter.compilationRepository` | `string` | `"EMS2.08"` | Repositório preferido (ex: EMS2, CRM, etc.) |
+
+### Repositório de Compilação
+
+Para utilizar diferentes repositórios de compilação (como CRM, EMS5, etc.), você deve habilitar a configuração `enableCompilationRepository`. Quando habilitada, a extensão enviará o valor de `compilationRepository` para o servidor.
+
+| Repositório | Descrição |
+|---|---|
+| **EMS2** | EMS 2.08 (Padrão) |
+| **CRM** | CRM |
+| **EMS5** | EMS 5.08 |
+| ... | ... |
+
+> ⚠️ **Retrocompatibilidade:** Se `enableCompilationRepository` estiver desabilitado, a extensão não enviará o repositório, e o servidor usará o valor padrão definido em `defaultRepository` (ou `EMS2.08`).
 
 > A alteração é **reativa**: ao desabilitar, todos os diagnósticos são limpos imediatamente; ao reabilitar, todos os arquivos ABL abertos são reanalisados — **sem necessidade de recarregar o VSCode**.
 

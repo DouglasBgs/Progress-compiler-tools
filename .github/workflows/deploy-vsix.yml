@@ -58,11 +58,30 @@ jobs:
           path: '*.vsix'
           retention-days: 7
 
+      - name: Extract README Changes
+        id: readme_changes
+        run: |
+          echo "## 🚀 Novidades desta versão" > changes.md
+          echo "" >> changes.md
+          echo "As seguintes alterações foram detectadas no README.md:" >> changes.md
+          echo "" >> changes.md
+          echo "\`\`\`markdown" >> changes.md
+          # Extrai as linhas adicionadas (+), remove o prefixo '+', 
+          # ignora metadados do diff (+++) e anexa ao arquivo
+          git diff HEAD~2 HEAD~1 -- README.md | grep '^\+' | grep -v '^\+\+\+' | sed 's/^\+//' >> changes.md || true
+          echo "\`\`\`" >> changes.md
+          
+          # Se o diff estiver vazio (apenas as 5 linhas de cabeçalho iniciais), adiciona aviso
+          if [ $(wc -l < changes.md) -le 5 ]; then
+            echo "Nenhuma alteração significativa detectada no README.md." > changes.md
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.versioning.outputs.VERSION }}
           name: Release v${{ steps.versioning.outputs.VERSION }}
+          body_path: changes.md
           files: '*.vsix'
           prerelease: false
         env:

@@ -1,4 +1,5 @@
 {
+  "defaultRepository": "",
   "databases": {
     "Progress": {
       "pf": "",

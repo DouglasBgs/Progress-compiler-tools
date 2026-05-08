@@ -342,8 +342,6 @@ app.post('/compile', async (req: Request, res: Response) => {
         const dbType: string = req.body.dbType;
         const patchInfo = req.body.patchInfo; // { patchVersion: string, subType: string }
 
-        logger.info('API', `POST /compile recebido`, { filesCount: files?.length, dbType, hasPatchInfo: !!patchInfo, ip: req.ip });
-
         if (!files || !Array.isArray(files)) {
             logger.warn('API', `Payload inválido recebido`, { body: typeof req.body });
             return res.status(400).json({ status: 'error', message: 'Payload inválido.' });
@@ -356,6 +354,11 @@ app.post('/compile', async (req: Request, res: Response) => {
         } else {
             logger.warn('Config', `Arquivo server.config.json não encontrado`, { configPath });
         }
+
+        // Resolve o repositório: prioriza o valor enviado pelo cliente, depois o padrão do config, e por último EMS2.08
+        const repository: string = req.body.repository || serverConfig.defaultRepository || 'EMS2.08';
+
+        logger.info('API', `POST /compile recebido`, { filesCount: files?.length, dbType, repository, hasPatchInfo: !!patchInfo, ip: req.ip });
 
         let dbSettings: any = null;
 
@@ -377,7 +380,7 @@ app.post('/compile', async (req: Request, res: Response) => {
                 });
             }
 
-            const shortcutPath = path.join(pConfig.baseShortcut, patchInfo.patchVersion.substring(0, 9) , patchInfo.subType, 'EMS2.08');
+            const shortcutPath = path.join(pConfig.baseShortcut, patchInfo.patchVersion.substring(0, 9) , patchInfo.subType, repository);
             const pfPath = path.join(patchBaseDir, 'connect-ems2.pf');
             const iniPath = path.join(shortcutPath, 'progress-12.ini');
 
@@ -386,11 +389,18 @@ app.post('/compile', async (req: Request, res: Response) => {
                 ini: iniPath
             };
 
-            logger.info('API', `Configuração de Patch resolvida`, { patchVersion: patchInfo.patchVersion, subType: patchInfo.subType, pfPath, iniPath });
+            logger.info('API', `Configuração de Patch resolvida`, { patchVersion: patchInfo.patchVersion, subType: patchInfo.subType, repository, pfPath, iniPath });
         } else {
             dbSettings = serverConfig.databases?.[dbType];
             if (dbSettings) {
-                logger.info('API', `Configuração de banco de dados carregada`, { dbType, pf: dbSettings.pf, ini: dbSettings.ini });
+                // Resolve o placeholder {repository} nos caminhos de pf e ini
+                if (dbSettings.pf) {
+                    dbSettings = { ...dbSettings, pf: dbSettings.pf.replace(/\{repository\}/g, repository) };
+                }
+                if (dbSettings.ini) {
+                    dbSettings = { ...dbSettings, ini: dbSettings.ini.replace(/\{repository\}/g, repository) };
+                }
+                logger.info('API', `Configuração de banco de dados carregada`, { dbType, repository, pf: dbSettings.pf, ini: dbSettings.ini });
             }
         }
 

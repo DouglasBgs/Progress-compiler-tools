@@ -201,9 +201,17 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 // ── 2. Enviar ao servidor de compilação ────────────────────
                 progress.report({ message: `Enviando ${filesPayload.length} arquivo(s) para compilar no ${selectedDb}...` });
 
+                // Verifica se a seleção de repositório está habilitada
+                const config = vscode.workspace.getConfiguration('abl-linter');
+                const enableRepo = config.get<boolean>('enableCompilationRepository', false);
+                const repository = enableRepo
+                    ? config.get<string>('compilationRepository', 'EMS2.08')
+                    : undefined;
+
                 const response = await axios.post(compilerUrl, {
                     dbType: selectedDb,
                     patchInfo: patchInfo,
+                    ...(repository ? { repository } : {}),
                     files: filesPayload
                 }, {
                     headers: { 'Content-Type': 'application/json' },

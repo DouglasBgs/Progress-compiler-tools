@@ -99,6 +99,36 @@
           "type": "boolean",
           "default": true,
           "description": "Habilita ou desabilita a correção de código em tempo real ao abrir e salvar arquivos Progress ABL."
+        },
+        "abl-linter.enableCompilationRepository": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Habilita a seleção do **Repositório de Compilação**.\n\nQuando habilitado, o repositório escolhido em `#abl-linter.compilationRepository#` será enviado ao servidor de compilação para resolver os caminhos de `.pf` e `.ini`.\n\nQuando desabilitado, o servidor usará o repositório padrão configurado internamente."
+        },
+        "abl-linter.compilationRepository": {
+          "type": "string",
+          "default": "EMS2.08",
+          "enum": [
+            "CRM",
+            "EAI1.00",
+            "EMS2.08",
+            "EMS5.08",
+            "FND1.02",
+            "GP3.50",
+            "HCM2.11A",
+            "HUB"
+          ],
+          "enumItemLabels": [
+            "CRM",
+            "EAI1",
+            "EMS2",
+            "EMS5",
+            "FND1",
+            "GP3",
+            "HCM2",
+            "HUB"
+          ],
+          "markdownDescription": "Repositório preferido de compilação do Progress OpenEdge.\n\nEste valor será utilizado para resolver os caminhos de `.pf` e `.ini` no servidor de compilação.\n\n⚠️ Esta configuração só tem efeito quando `#abl-linter.enableCompilationRepository#` estiver habilitado."
         }
       }
     },
