@@ -24,9 +24,9 @@ interface FilePayload {
 const outputChannel = vscode.window.createOutputChannel('ABL Compiler');
 
 /**
- * Extensões ABL compiláveis (inclui .i, .i1, .i2, .i3, ...)
+ * Aceita qualquer arquivo com extensão para envio ao servidor (a filtragem de compilação ocorre no servidor)
  */
-export const ABL_COMPILE_REGEX = /\.(p|py|w|cls|i\d*)$/i;
+export const ABL_COMPILE_REGEX = /\.[a-zA-Z0-9_\-]+$/i;
 
 /**
  * Extrai a URI de um argumento (Explorer Uri ou SCM SourceControlResourceState)
@@ -105,11 +105,11 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
             }
         }
 
-        // Filtra apenas extensões ABL compiláveis (.p, .w, .cls, .i, .i1, .i2, ...)
+        // Filtra apenas arquivos com alguma extensão (incluindo qualquer include ou suporte)
         urisToCompile = urisToCompile.filter(u => ABL_COMPILE_REGEX.test(u.fsPath));
 
         if (urisToCompile.length === 0) {
-            vscode.window.showWarningMessage('Nenhum arquivo ABL selecionado ou aberto no editor (extensões válidas: .p, .py, .w, .cls, .i, etc).');
+            vscode.window.showWarningMessage('Nenhum arquivo selecionado ou aberto no editor.');
             return;
         }
 
