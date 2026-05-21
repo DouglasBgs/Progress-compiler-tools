@@ -150,7 +150,7 @@ async function executeCompileJob(job: CompileJob): Promise<void> {
 
             fs.writeFileSync(fullPath, Buffer.from(file.contentBase64, 'base64'));
             
-            if (/\.(p|w|cls)$/i.test(fullPath)) {
+            if (/\.(p|py|w|cls)$/i.test(fullPath)) {
                 ablSources.push(file.relativePath);
             }
         }
@@ -176,10 +176,12 @@ PUT UNFORMATTED "[" SKIP.
             const unixPath = src.replace(/\\/g, '/');
             const pathNoFile = path.dirname(unixPath);
             const fullLocalPath = path.join(baseTempPath, src).replace(/\\/g, '/');
+            const isClass = /\.cls$/i.test(src);
+            const saveIntoPath = isClass ? "resultado" : `resultado/${pathNoFile}`;
             const isLast = (idx === ablSources.length - 1);
             
             compileScriptContent += `
-COMPILE "${fullLocalPath}" SAVE INTO "resultado/${pathNoFile}" NO-ERROR.
+COMPILE "${fullLocalPath}" SAVE INTO "${saveIntoPath}" NO-ERROR.
 cLine = "~{" + '"file": "${unixPath}", "success": ' + (IF COMPILER:ERROR THEN "false" ELSE "true") + ', "messages": ['.
 PUT UNFORMATTED cLine.
 

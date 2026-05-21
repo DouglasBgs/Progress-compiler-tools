@@ -124,7 +124,17 @@ async function addServer() {
         return;
     }
 
-    const newServer: TargetServer = { name: name.trim(), path: serverPath.trim(), platform };
+    // 4. Banco de Compilação Padrão (Opcional)
+    const dbItem = await vscode.window.showQuickPick([
+        { label: '$(dash) Não definir (perguntar na compilação)', value: undefined },
+        { label: 'Progress',   value: 'Progress'   as const },
+        { label: 'SQL Server', value: 'SQL Server' as const },
+        { label: 'Oracle',     value: 'Oracle'     as const },
+    ], { placeHolder: 'Banco de Compilação padrão para este servidor? (Opcional — pode ser ignorado)', ignoreFocusOut: true });
+    if (dbItem === undefined) { return; }
+    const dbType = dbItem.value;
+
+    const newServer: TargetServer = { name: name.trim(), path: serverPath.trim(), platform, dbType };
     const fresh = await readServers(); // relê antes de gravar
     await saveServers([...fresh, newServer]);
     vscode.window.showInformationMessage(`✅ Servidor "${name}" (${platform}) adicionado com sucesso!`);
@@ -142,7 +152,7 @@ async function editServer() {
         servers.map((s, i) => ({
             label: `$(server) ${s.name}`,
             description: s.path,
-            detail: `Plataforma: ${s.platform}`,
+            detail: s.dbType ? `Banco: ${s.dbType} | Plataforma: ${s.platform}` : `Plataforma: ${s.platform}`,
             index: i
         })),
         { placeHolder: 'Selecione o servidor para editar', ignoreFocusOut: true }
@@ -196,9 +206,19 @@ async function editServer() {
 
     if (!serverPath) { return; }
 
+    // Banco de Compilação Padrão (Opcional)
+    const dbItem = await vscode.window.showQuickPick([
+        { label: '$(dash) Não definir (perguntar na compilação)', value: undefined, picked: old.dbType === undefined },
+        { label: 'Progress',   value: 'Progress'   as const, picked: old.dbType === 'Progress'   },
+        { label: 'SQL Server', value: 'SQL Server' as const, picked: old.dbType === 'SQL Server' },
+        { label: 'Oracle',     value: 'Oracle'     as const, picked: old.dbType === 'Oracle'     },
+    ], { placeHolder: 'Banco de Compilação padrão para este servidor? (Opcional)', ignoreFocusOut: true });
+    if (dbItem === undefined) { return; }
+    const dbType = dbItem.value;
+
     const fresh = await readServers(); // relê antes de gravar
     const updated = [...fresh];
-    updated[idx] = { name: name.trim(), path: serverPath.trim(), platform };
+    updated[idx] = { name: name.trim(), path: serverPath.trim(), platform, dbType };
     await saveServers(updated);
     vscode.window.showInformationMessage(`✅ Servidor "${name}" atualizado com sucesso!`);
 }
@@ -215,7 +235,7 @@ async function removeServer() {
         servers.map((s, i) => ({
             label: `$(server) ${s.name}`,
             description: s.path,
-            detail: `Plataforma: ${s.platform}`,
+            detail: s.dbType ? `Banco: ${s.dbType} | Plataforma: ${s.platform}` : `Plataforma: ${s.platform}`,
             index: i,
             picked: false
         })),

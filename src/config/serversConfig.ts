@@ -5,6 +5,7 @@ export interface TargetServer {
     name: string;
     path: string;
     platform: 'linux' | 'windows' | 'any';
+    dbType?: 'Progress' | 'SQL Server' | 'Oracle';
 }
 
 const SERVERS_FILE = 'servers.json';

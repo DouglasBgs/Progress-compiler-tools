@@ -32,6 +32,7 @@
         ],
         "extensions": [
           ".p",
+          ".py",
           ".w",
           ".cls",
           ".i"
@@ -63,7 +64,7 @@
         {
           "command": "abl-linter.compileRemote",
           "group": "2_workspace",
-          "when": "resourceExtname == .p || resourceExtname == .w || resourceExtname == .cls || resourceExtname =~ /^\\.i\\d*$/"
+          "when": "resourceExtname == .p || resourceExtname == .py || resourceExtname == .w || resourceExtname == .cls || resourceExtname =~ /^\\.i\\d*$/"
         }
       ],
       "scm/resourceState/context": [
@@ -136,7 +137,7 @@
       {
         "command": "abl-linter.compileRemote",
         "key": "f5",
-        "when": "editorLangId == 'abl' || resourceExtname == .p || resourceExtname == .w || resourceExtname == .cls"
+        "when": "editorLangId == 'abl' || resourceExtname == .p || resourceExtname == .py || resourceExtname == .w || resourceExtname == .cls"
       }
     ]
   },

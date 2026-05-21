@@ -26,7 +26,7 @@ const outputChannel = vscode.window.createOutputChannel('ABL Compiler');
 /**
  * Extensões ABL compiláveis (inclui .i, .i1, .i2, .i3, ...)
  */
-export const ABL_COMPILE_REGEX = /\.(p|w|cls|i\d*)$/i;
+export const ABL_COMPILE_REGEX = /\.(p|py|w|cls|i\d*)$/i;
 
 /**
  * Extrai a URI de um argumento (Explorer Uri ou SCM SourceControlResourceState)
@@ -109,7 +109,7 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         urisToCompile = urisToCompile.filter(u => ABL_COMPILE_REGEX.test(u.fsPath));
 
         if (urisToCompile.length === 0) {
-            vscode.window.showWarningMessage('Nenhum arquivo ABL selecionado ou aberto no editor (extensões válidas: .p, .w, .cls, .i, etc).');
+            vscode.window.showWarningMessage('Nenhum arquivo ABL selecionado ou aberto no editor (extensões válidas: .p, .py, .w, .cls, .i, etc).');
             return;
         }
 
@@ -117,15 +117,184 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         const compilerUrl = await getOrPromptCompilerUrl();
         if (!compilerUrl) { return; }
 
-        // Tipo do Banco de Dados
-        const dbOptions = ['Progress', 'SQL Server', 'Oracle', 'Patch'];
-        const selectedDb = await vscode.window.showQuickPick(
-            dbOptions,
-            { placeHolder: 'Selecione em qual Banco de Dados deverá ser feita a compilação', ignoreFocusOut: true }
-        );
-        if (!selectedDb) {
-            vscode.window.showWarningMessage('Compilação cancelada: Nenhum banco de dados foi selecionado.');
+        // Raiz do workspace
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('Você deve estar em um Workspace para usar a compilação remota.');
             return;
+        }
+
+        // ── 1. Escolher local para salvar ─────────────────────────────
+        const allServers       = await readServers();
+        const availableServers = getServersForCurrentPlatform(allServers);
+
+        const platformIcon = (p: string) =>
+            p === 'linux' ? '🐧' : p === 'windows' ? '🪟' : '🌐';
+
+        type PickItemTyped = vscode.QuickPickItem & { _type: string; serverObj?: TargetServer };
+
+        const destItems: PickItemTyped[] = [
+            {
+                label: '$(home) Workspace Local',
+                description: 'Salvar na estrutura de pastas do projeto',
+                detail: workspaceFolder.uri.fsPath,
+                _type: 'local'
+            },
+            ...availableServers.map(s => ({
+                label: `$(server) ${platformIcon(s.platform)} ${s.name}`,
+                description: s.path,
+                detail: s.dbType
+                    ? `Banco: ${s.dbType} | Plataforma: ${s.platform}`
+                    : `Plataforma: ${s.platform}`,
+                _type: 'server',
+                serverObj: s
+            })),
+            {
+                label: '$(folder-opened) Selecionar Pasta...',
+                description: 'Escolher uma pasta no computador (uso único, não salva)',
+                detail: '',
+                _type: 'browse'
+            },
+            {
+                label: '$(add) + Configurar Novo Servidor...',
+                description: 'Adicionar permanentemente à lista de servidores',
+                detail: '',
+                _type: 'add'
+            }
+        ];
+
+        const destSelection = await vscode.window.showQuickPick(destItems, {
+            placeHolder: '📦 Onde deseja salvar os arquivos compilados (.r)?',
+            ignoreFocusOut: true
+        });
+
+        if (!destSelection) {
+            vscode.window.showWarningMessage('Salvamento cancelado. Os arquivos .r não foram persistidos.');
+            return;
+        }
+
+        let targetBasePath = '';
+        let isLocal        = false;
+        let preSelectedDb: string | undefined;
+
+        if (destSelection._type === 'local') {
+            targetBasePath = workspaceFolder.uri.fsPath;
+            isLocal        = true;
+
+        } else if (destSelection._type === 'server') {
+            targetBasePath = destSelection.description!;
+            preSelectedDb  = destSelection.serverObj?.dbType;
+
+        } else if (destSelection._type === 'browse') {
+            const picked = await pickFolderDialog(
+                'Selecionar pasta de destino para os arquivos .r',
+                vscode.Uri.file(os.homedir())
+            );
+            if (!picked) {
+                vscode.window.showWarningMessage('Nenhuma pasta selecionada. Salvamento cancelado.');
+                return;
+            }
+            targetBasePath = picked;
+
+        } else if (destSelection._type === 'add') {
+            const isWin   = process.platform === 'win32';
+            const example = isWin
+                ? '\\\\servidor\\share\\bin  ou  C:\\temp\\bin'
+                : '/mnt/servidor/bin  ou  /home/user/bin';
+
+            const newName = await vscode.window.showInputBox({
+                prompt: 'Nome do Servidor (Ex: Produção, Homologação)',
+                placeHolder: 'Ex: Servidor de Aplicação',
+                ignoreFocusOut: true,
+                validateInput: (v) => (!v || v.trim() === '') ? 'Nome é obrigatório.' : null
+            });
+            if (!newName) {
+                vscode.window.showWarningMessage('Configuração incompleta. Salvamento cancelado.');
+                return;
+            }
+
+            const platformItem = await vscode.window.showQuickPick([
+                { label: '🐧 Linux',   description: 'Apenas para usuários Linux',         value: 'linux'   },
+                { label: '🪟 Windows', description: 'Apenas para usuários Windows',        value: 'windows' },
+                { label: '🌐 Ambas',   description: 'Funciona para Linux e Windows (any)', value: 'any'     },
+            ], { placeHolder: 'Para qual plataforma é este servidor?', ignoreFocusOut: true });
+            if (!platformItem) {
+                vscode.window.showWarningMessage('Configuração incompleta. Salvamento cancelado.');
+                return;
+            }
+            const platform = (platformItem as any).value as 'linux' | 'windows' | 'any';
+
+            const inputMethod = await vscode.window.showQuickPick([
+                { label: '$(folder-opened) Selecionar Pasta...', description: 'Abrir diálogo de seleção de pasta' },
+                { label: '$(keyboard) Digitar Caminho',          description: `Útil para caminhos de rede: ${example}` },
+            ], { placeHolder: 'Como deseja informar o caminho?', ignoreFocusOut: true });
+            if (!inputMethod) {
+                vscode.window.showWarningMessage('Configuração incompleta. Salvamento cancelado.');
+                return;
+            }
+
+            let newPath: string | undefined;
+            if (inputMethod.label.includes('Selecionar Pasta')) {
+                newPath = await pickFolderDialog(
+                    `Pasta do servidor "${newName}"`,
+                    vscode.Uri.file(os.homedir())
+                );
+            } else {
+                newPath = await vscode.window.showInputBox({
+                    prompt: `Caminho Completo (${isWin ? 'Windows' : 'Linux'})`,
+                    placeHolder: `Ex: ${example}`,
+                    ignoreFocusOut: true,
+                    validateInput: (v) => (!v || v.trim() === '') ? 'Caminho é obrigatório.' : null
+                });
+            }
+
+            if (!newPath) {
+                vscode.window.showWarningMessage('Nenhum caminho informado. Salvamento cancelado.');
+                return;
+            }
+
+            // Banco padrão para o novo servidor (opcional)
+            const newDbItem = await vscode.window.showQuickPick([
+                { label: '$(dash) Não definir (perguntar na compilação)', value: undefined },
+                { label: 'Progress',   value: 'Progress'   as const },
+                { label: 'SQL Server', value: 'SQL Server' as const },
+                { label: 'Oracle',     value: 'Oracle'     as const },
+            ], { placeHolder: 'Banco de Compilação padrão para este servidor? (Opcional)', ignoreFocusOut: true });
+            if (newDbItem === undefined) {
+                vscode.window.showWarningMessage('Configuração incompleta. Salvamento cancelado.');
+                return;
+            }
+            const newDbType = newDbItem.value;
+
+            targetBasePath = newPath;
+            preSelectedDb  = newDbType;
+
+            const newServer: TargetServer = { name: newName.trim(), path: newPath.trim(), platform, dbType: newDbType };
+            const fresh = await readServers();
+            await saveServers([...fresh, newServer]);
+            vscode.window.showInformationMessage(`✅ Servidor "${newName}" adicionado à lista de servidores!`);
+        }
+
+        if (!targetBasePath) {
+            vscode.window.showWarningMessage('Salvamento cancelado.');
+            return;
+        }
+
+        // ── 2. Banco de Dados (usa o do servidor se definido, senão pergunta) ─
+        let selectedDb: string;
+        if (preSelectedDb) {
+            selectedDb = preSelectedDb;
+        } else {
+            // Patch disponível apenas quando não há banco pré-configurado (local, browse ou servidor sem default)
+            const picked = await vscode.window.showQuickPick(
+                ['Progress', 'SQL Server', 'Oracle', 'Patch'],
+                { placeHolder: 'Selecione em qual Banco de Dados deverá ser feita a compilação', ignoreFocusOut: true }
+            );
+            if (!picked) {
+                vscode.window.showWarningMessage('Compilação cancelada: Nenhum banco de dados foi selecionado.');
+                return;
+            }
+            selectedDb = picked;
         }
 
         let patchInfo: any = null;
@@ -138,24 +307,17 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 ignoreFocusOut: true,
                 validateInput: (v) => (!v || v.trim() === '') ? 'Versão do patch é obrigatória.' : null
             });
-            if (!patchVersion) return;
-            
+            if (!patchVersion) { return; }
+
             context.globalState.update('lastPatchVersion', patchVersion);
 
             const subType = await vscode.window.showQuickPick(
                 ['Progress', 'SQL Server', 'Oracle'],
                 { placeHolder: 'Selecione a versão de banco para este patch', ignoreFocusOut: true }
             );
-            if (!subType) return;
+            if (!subType) { return; }
 
             patchInfo = { patchVersion, subType };
-        }
-
-        // Raiz do workspace
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
-            vscode.window.showErrorMessage('Você deve estar em um Workspace para usar a compilação remota.');
-            return;
         }
 
         // Salva buffers pendentes
@@ -317,150 +479,6 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                             `A compilação teve alguns avisos, mas gerou ${compiledFiles.length} arquivo(s) .r com sucesso. Verifique o Output.`
                         );
                     }
-                }
-
-                // ── 5b. Sucesso — escolher destino dos .r ──────────────────
-                // Lê servidores do arquivo servers.json (assíncrono)
-                const allServers       = await readServers();
-                const availableServers = getServersForCurrentPlatform(allServers);
-
-                const platformIcon = (p: string) =>
-                    p === 'linux' ? '🐧' : p === 'windows' ? '🪟' : '🌐';
-
-                type PickItemTyped = vscode.QuickPickItem & { _type: string };
-
-                const items: PickItemTyped[] = [
-                    {
-                        label: '$(home) Workspace Local',
-                        description: 'Salvar na estrutura de pastas do projeto',
-                        detail: workspaceFolder.uri.fsPath,
-                        _type: 'local'
-                    },
-                    ...availableServers.map(s => ({
-                        label: `$(server) ${platformIcon(s.platform)} ${s.name}`,
-                        description: s.path,
-                        detail: `Plataforma: ${s.platform}`,
-                        _type: 'server'
-                    })),
-                    {
-                        label: '$(folder-opened) Selecionar Pasta...',
-                        description: 'Escolher uma pasta no computador (uso único, não salva)',
-                        detail: '',
-                        _type: 'browse'
-                    },
-                    {
-                        label: '$(add) + Configurar Novo Servidor...',
-                        description: 'Adicionar permanentemente à lista de servidores',
-                        detail: '',
-                        _type: 'add'
-                    }
-                ];
-
-                const selection = await vscode.window.showQuickPick(items, {
-                    placeHolder: '📦 Onde deseja salvar os arquivos compilados (.r)?',
-                    ignoreFocusOut: true
-                });
-
-                if (!selection) {
-                    vscode.window.showWarningMessage('Salvamento cancelado. Os arquivos .r não foram persistidos.');
-                    return;
-                }
-
-                let targetBasePath = '';
-                let isLocal        = false;
-
-                // ── Workspace local ──
-                if ((selection as any)._type === 'local') {
-                    targetBasePath = workspaceFolder.uri.fsPath;
-                    isLocal        = true;
-
-                // ── Servidor já configurado ──
-                } else if ((selection as any)._type === 'server') {
-                    targetBasePath = selection.description!;
-
-                // ── Seletor de pasta (uso único) ──
-                } else if ((selection as any)._type === 'browse') {
-                    const picked = await pickFolderDialog(
-                        'Selecionar pasta de destino para os arquivos .r',
-                        vscode.Uri.file(os.homedir())
-                    );
-                    if (!picked) {
-                        vscode.window.showWarningMessage('Nenhuma pasta selecionada. Salvamento cancelado.');
-                        return;
-                    }
-                    targetBasePath = picked;
-
-                // ── Adicionar novo servidor permanentemente ──
-                } else if ((selection as any)._type === 'add') {
-                    const isWin   = process.platform === 'win32';
-                    const example = isWin
-                        ? '\\\\servidor\\share\\bin  ou  C:\\temp\\bin'
-                        : '/mnt/servidor/bin  ou  /home/user/bin';
-
-                    const newName = await vscode.window.showInputBox({
-                        prompt: 'Nome do Servidor (Ex: Produção, Homologação)',
-                        placeHolder: 'Ex: Servidor de Aplicação',
-                        ignoreFocusOut: true,
-                        validateInput: (v) => (!v || v.trim() === '') ? 'Nome é obrigatório.' : null
-                    });
-                    if (!newName) {
-                        vscode.window.showWarningMessage('Configuração incompleta. Salvamento cancelado.');
-                        return;
-                    }
-
-                    const platformItem = await vscode.window.showQuickPick([
-                        { label: '🐧 Linux',   description: 'Apenas para usuários Linux',         value: 'linux'   },
-                        { label: '🪟 Windows', description: 'Apenas para usuários Windows',        value: 'windows' },
-                        { label: '🌐 Ambas',   description: 'Funciona para Linux e Windows (any)', value: 'any'     },
-                    ], { placeHolder: 'Para qual plataforma é este servidor?', ignoreFocusOut: true });
-                    if (!platformItem) {
-                        vscode.window.showWarningMessage('Configuração incompleta. Salvamento cancelado.');
-                        return;
-                    }
-                    const platform = (platformItem as any).value as 'linux' | 'windows' | 'any';
-
-                    const inputMethod = await vscode.window.showQuickPick([
-                        { label: '$(folder-opened) Selecionar Pasta...', description: 'Abrir diálogo de seleção de pasta' },
-                        { label: '$(keyboard) Digitar Caminho',          description: `Útil para caminhos de rede: ${example}` },
-                    ], { placeHolder: 'Como deseja informar o caminho?', ignoreFocusOut: true });
-                    if (!inputMethod) {
-                        vscode.window.showWarningMessage('Configuração incompleta. Salvamento cancelado.');
-                        return;
-                    }
-
-                    let newPath: string | undefined;
-                    if (inputMethod.label.includes('Selecionar Pasta')) {
-                        newPath = await pickFolderDialog(
-                            `Pasta do servidor "${newName}"`,
-                            vscode.Uri.file(os.homedir())
-                        );
-                    } else {
-                        newPath = await vscode.window.showInputBox({
-                            prompt: `Caminho Completo (${isWin ? 'Windows' : 'Linux'})`,
-                            placeHolder: `Ex: ${example}`,
-                            ignoreFocusOut: true,
-                            validateInput: (v) => (!v || v.trim() === '') ? 'Caminho é obrigatório.' : null
-                        });
-                    }
-
-                    if (!newPath) {
-                        vscode.window.showWarningMessage('Nenhum caminho informado. Salvamento cancelado.');
-                        return;
-                    }
-
-                    targetBasePath = newPath;
-                    const newServer: TargetServer = { name: newName.trim(), path: newPath.trim(), platform };
-                    // Relê antes de gravar para não sobrescrever alterações concorrentes
-                    const fresh = await readServers();
-                    await saveServers([...fresh, newServer]);
-                    vscode.window.showInformationMessage(
-                        `✅ Servidor "${newName}" adicionado à lista de servidores!`
-                    );
-                }
-
-                if (!targetBasePath) {
-                    vscode.window.showWarningMessage('Salvamento cancelado.');
-                    return;
                 }
 
                 // ── 6. Gravar os arquivos .r no destino ────────────────────
