@@ -1,6 +1,6 @@
 # OpenEdge ABL Linter & Remote Compiler
 
-Extensão para Visual Studio Code que oferece análise estática de código **OpenEdge ABL** (Progress) em tempo real e compilação remota de arquivos `.p`, `.w`, `.cls` e `.i` diretamente do editor.
+Extensão para Visual Studio Code que oferece análise estática de código **OpenEdge ABL** (Progress) em tempo real e compilação remota de arquivos `.p`, `.py`, `.w`, `.cls` e `.i` diretamente do editor.
 
 ---
 
@@ -13,12 +13,6 @@ Extensão para Visual Studio Code que oferece análise estática de código **Op
 - [Configuração do Servidor de Compilação](#-configuração-do-servidor-de-compilação)
 - [Configuração da Extensão no VSCode](#-configuração-da-extensão-no-vscode)
 - [Como Usar](#-como-usar)
-  - [Linter em Tempo Real](#linter-em-tempo-real)
-  - [Compilação Remota](#compilação-remota)
-  - [Compilação de Múltiplos Fontes](#compilação-de-múltiplos-fontes)
-  - [Compilação via Git (Source Control)](#compilação-via-git-source-control)
-  - [Compilação de Patches](#compilação-de-patches)
-  - [Gerenciar Servidores de Destino](#gerenciar-servidores-de-destino)
 - [Estrutura de Armazenamento de Servidores](#-estrutura-de-armazenamento-de-servidores)
 - [Comandos Disponíveis](#-comandos-disponíveis)
 - [Atalhos de Teclado](#-atalhos-de-teclado)
@@ -34,28 +28,28 @@ Extensão para Visual Studio Code que oferece análise estática de código **Op
 
 ### 🔍 Linter Estático (ABL)
 - Análise de código em tempo real ao **salvar** arquivos ABL
-- Detecção automática de arquivos `.p`, `.w`, `.cls` e `.i`
+- Detecção automática de arquivos `.p`, `.py`, `.w`, `.cls` e `.i`
 - Exibição de erros e avisos direto na aba **Problems** do VSCode
 - Limpeza automática de diagnósticos ao fechar o arquivo
 
 ### 🔨 Compilação Remota
-- Compilação de um ou **múltiplos arquivos** selecionados no Explorer
+- Compilação de um ou **múltiplos arquivos** selecionados no Explorer ou Git (Source Control)
 - Acionamento via menu de contexto (clique direito) ou tecla **F5**
-- Suporte a três tipos de banco de dados: **Progress**, **SQL Server** e **Oracle**
+- Suporte a quatro tipos de compilação/bancos de dados: **Progress**, **SQL Server**, **Oracle** e **Patch**
 - Envio dos fontes em Base64 ao servidor — **sem dependência de drives de rede** no cliente
 - Retorno dos binários `.r` compilados diretamente para o VSCode
 - Exibição detalhada de erros de compilação no canal **ABL Compiler** (Output)
 - Exclusão automática de `.r` inválidos em caso de falha de compilação
 
-### 📦 Destinos Flexíveis para os `.r`
-Após compilação bem-sucedida, você escolhe onde salvar os binários:
+### 📦 Destinos Flexíveis e Inteligentes para os `.r`
+Ao iniciar a compilação, você escolhe primeiro onde salvar os binários. Caso o servidor escolhido possua um **banco de dados de preferência pré-configurado**, a compilação é iniciada automaticamente poupando cliques:
 
 | Opção | Descrição |
 |-------|-----------|
 | 🏠 **Workspace Local** | Salva na estrutura de pastas do projeto, mantendo o caminho original (com `src/`) |
-| 🖥️ **Servidor Cadastrado** | Salva em um servidor previamente configurado (Linux ou Windows) |
+| 🖥️ **Servidor Cadastrado** | Salva em um servidor previamente configurado (Linux ou Windows), podendo possuir um banco de preferência associado |
 | 📁 **Selecionar Pasta...** | Abre o seletor de pasta do sistema (uso único, não salva) |
-| ➕ **Configurar Novo Servidor...** | Adiciona o servidor permanentemente à lista e salva os `.r` |
+| ➕ **Configurar Novo Servidor...** | Adiciona o servidor permanentemente à lista, permitindo definir seu banco de preferência |
 
 ### ⚙️ Gerenciamento de Servidores de Destino
 - Adicionar, editar e remover servidores com interface guiada
@@ -272,7 +266,7 @@ Para utilizar diferentes repositórios de compilação (como CRM, EMS5, etc.), v
 
 ### Linter em Tempo Real
 
-O linter é ativado **automaticamente** ao abrir ou salvar qualquer arquivo com extensão `.p`, `.w`, `.cls` ou `.i`. Os erros aparecem na aba **Problems** (`Ctrl+Shift+M`) do VSCode.
+O linter é ativado **automaticamente** ao abrir ou salvar qualquer arquivo com extensão `.p`, `.py`, `.w`, `.cls` ou `.i`. Os erros aparecem na aba **Problems** (`Ctrl+Shift+M`) do VSCode.
 
 Nenhuma configuração adicional é necessária para começar a usar.
 
@@ -284,7 +278,7 @@ Nenhuma configuração adicional é necessária para começar a usar.
 
 #### Opção 1: Menu de Contexto (Explorer)
 
-1. Selecione um ou mais arquivos `.p` / `.w` / `.cls` / `.i` no Explorer  
+1. Selecione um ou mais arquivos `.p` / `.py` / `.w` / `.cls` / `.i` no Explorer  
    (use `Ctrl+Click` para selecionar múltiplos)
 2. Clique com o botão direito → **ABL Compilar**
 3. Siga o assistente guiado
@@ -294,23 +288,26 @@ Nenhuma configuração adicional é necessária para começar a usar.
 1. Com um arquivo ABL aberto e focado no editor, pressione **`F5`**
 2. O arquivo atual será enviado para compilação
 
-#### Fluxo do Assistente
+#### Fluxo do Assistente (Ordem Atualizada)
+
+Para agilizar o fluxo, agora você informa primeiro o **destino** da compilação. Se o destino possuir um banco preferencial pré-configurado, a compilação ocorre **instantaneamente** sem novas perguntas!
 
 ```
 ┌────────────────────────────────────────────────┐
-│  1. Selecione o Banco de Dados                 │
+│  1. Onde salvar os arquivos .r?                │
+│     ○ 🏠 Workspace Local                       │
+│     ○ 🖥️ 🐧 Servidor Linux   /mnt/prod/bin     │
+│     ○ 🖥️ 🪟 Servidor Windows   \\srv\hom\bin   │
+│     ○ 📁 Selecionar Pasta...                   │
+│     ○ ➕ Configurar Novo Servidor...           │
+└────────────────────────────────────────────────┘
+               ↓ (Se o servidor NÃO tiver banco padrão configurado)
+┌────────────────────────────────────────────────┐
+│  2. Selecione o Banco de Dados                 │
 │     ○ Progress                                 │
 │     ○ SQL Server                               │
 │     ○ Oracle                                   │
-└────────────────────────────────────────────────┘
-               ↓ (envia para compilação no servidor)
-┌────────────────────────────────────────────────┐
-│  2. Onde salvar os arquivos .r?                │
-│     ○ 🏠 Workspace Local                        │
-│     ○ 🖥️ 🐧 Servidor Linux   /mnt/prod/bin  │
-│     ○ 🖥️ 🪟 Servidor Windows   \\srv\hom\bin  │
-│     ○ 📁 Selecionar Pasta...                   │
-│     ○ ➕ Configurar Novo Servidor...            │
+│     ○ Patch                                    │
 └────────────────────────────────────────────────┘
 ```
 
@@ -360,7 +357,7 @@ A extensão suporta a **compilação em lote** de múltiplos arquivos-fonte sele
    - Ou use `Shift+Click` para selecionar um intervalo contínuo de arquivos
 2. Clique com o **botão direito** sobre a seleção
 3. Selecione **ABL Compilar** no menu de contexto
-4. Escolha o banco de dados e o destino dos `.r` normalmente
+4. Escolha o destino dos `.r` e o banco de dados normalmente
 
 > Todos os arquivos selecionados serão enviados ao servidor de compilação em uma **única requisição**, otimizando o tempo total de compilação.
 
@@ -369,6 +366,7 @@ A extensão suporta a **compilação em lote** de múltiplos arquivos-fonte sele
 | Extensão | Tipo |
 |----------|------|
 | `.p` | Procedure |
+| `.py` | Código / Script (.py) |
 | `.w` | Window / Persistent Procedure |
 | `.cls` | Classe ABL |
 | `.i` | Include |
@@ -387,9 +385,34 @@ Além do Explorer, é possível compilar fontes diretamente pela **aba de Source
    - Use `Ctrl+Click` para selecionar múltiplos arquivos modificados
 3. Clique com o **botão direito** sobre a seleção
 4. Selecione **ABL Compilar** no menu de contexto
-5. Siga o assistente normalmente (banco de dados → destino dos `.r`)
+5. Siga o assistente normalmente (destino dos `.r` → banco de dados se necessário)
 
 > O botão **ABL Compilar** também aparece como um ícone **inline** ao lado de cada arquivo na lista de mudanças, permitindo compilar rapidamente um único fonte com um clique.
+
+#### Cenários de uso
+
+| Cenário | Ação |
+|---------|------|
+| Compilar um fonte modificado | Clique no ícone inline ao lado do arquivo na aba Git |
+| Compilar vários fontes alterados | Selecione múltiplos com `Ctrl+Click` → botão direito → **ABL Compilar** |
+| Compilar todas as mudanças | Clique direito no grupo **Changes** → **ABL Compilar** |
+
+---
+
+### Compilação de Patches
+
+Ideal para compilar correções pontuais em ambientes de patch específicos sem precisar configurar cada banco manualmente no servidor.
+
+1. Acione a compilação remota (`F5` ou Menu de Contexto).
+2. Selecione um destino sem banco de preferência associado (ex: Workspace Local ou um Servidor sem banco padrão).
+3. Selecione a opção **Patch** na lista de Bancos de Dados.
+4. Informe a **Versão do Patch** (Ex: `12.1.2024.1`).
+   - *A extensão lembrará da última versão informada para facilitar.*
+5. Selecione o **Tipo de Banco** (Progress, SQL Server ou Oracle).
+
+O servidor então localizará os arquivos `.pf` e `.ini` correspondentes na estrutura de diretórios configurada no `patchConfig`.
+
+---�as, permitindo compilar rapidamente um único fonte com um clique.
 
 #### Cenários de uso
 
