@@ -43,7 +43,11 @@
     "activationEvents": [
       "onLanguage:abl",
       "onCommand:abl-linter.compileRemote",
-      "onCommand:abl-linter.manageServers"
+      "onCommand:abl-linter.manageServers",
+      "onCommand:abl-linter.addServer",
+      "onCommand:abl-linter.removeServer",
+      "onCommand:abl-linter.openSettings",
+      "onCommand:abl-linter.selectFilesAndCompile"
     ],
     "commands": [
       {
@@ -57,8 +61,49 @@
         "title": "Gerenciar Servidores de Destino",
         "category": "OpenEdge ABL",
         "icon": "$(server-environment)"
+      },
+      {
+        "command": "abl-linter.addServer",
+        "title": "Adicionar Servidor de Destino",
+        "category": "OpenEdge ABL",
+        "icon": "$(add)"
+      },
+      {
+        "command": "abl-linter.removeServer",
+        "title": "Excluir Servidor de Destino",
+        "category": "OpenEdge ABL",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "abl-linter.openSettings",
+        "title": "Abrir Configurações da Extensão",
+        "category": "OpenEdge ABL",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "abl-linter.selectFilesAndCompile",
+        "title": "Selecionar Arquivos e Compilar",
+        "category": "OpenEdge ABL",
+        "icon": "$(files)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ablLinter",
+          "title": "Progress Compiler Tools",
+          "icon": "$(tools)"
+        }
+      ]
+    },
+    "views": {
+      "ablLinter": [
+        {
+          "id": "ablLinterMenu",
+          "name": "Menu"
+        }
+      ]
+    },
     "menus": {
       "explorer/context": [
         {
@@ -84,6 +129,28 @@
           "command": "abl-linter.compileRemote",
           "group": "1_modification",
           "when": "scmProvider == git"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "abl-linter.selectFilesAndCompile",
+          "when": "view == ablLinterMenu",
+          "group": "navigation@1"
+        },
+        {
+          "command": "abl-linter.openSettings",
+          "when": "view == ablLinterMenu",
+          "group": "navigation@2"
+        },
+        {
+          "command": "abl-linter.addServer",
+          "when": "view == ablLinterMenu",
+          "group": "navigation@3"
+        },
+        {
+          "command": "abl-linter.removeServer",
+          "when": "view == ablLinterMenu",
+          "group": "navigation@4"
         }
       ]
     },

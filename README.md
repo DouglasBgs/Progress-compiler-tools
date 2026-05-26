@@ -54,9 +54,20 @@ Ao iniciar a compilação, você escolhe primeiro onde salvar os binários. Caso
 ### ⚙️ Gerenciamento de Servidores de Destino
 - Adicionar, editar e remover servidores com interface guiada
 - Seleção de pasta via **diálogo gráfico** ou digitação manual (para caminhos UNC Windows `\\servidor\share`)
-- Suporte a servidores **por plataforma**: Linux 🐧, Windows 🪟 ou Ambas 🌐
+- Suporte a servidores **por plataforma**: Linux 🐧, Windows 💻 ou Ambas 🌐
 - Cada usuário vê apenas os servidores compatíveis com seu sistema operacional
 - Configuração armazenada em arquivo JSON dedicado, **separado do `settings.json`** do VSCode
+- Validação automática de host UNC confiável (`security.allowedUNCHosts`) ao adicionar/editar servidor
+- Solicitação de reinício do VSCode **somente após salvar** toda a configuração do servidor
+
+### 🧭 Menu Lateral da Extensão
+- Container **ABL** na barra lateral do VSCode (Activity Bar)
+- Ações rápidas no menu da extensão:
+  - Selecionar Arquivos e Compilar
+  - Ajustar Configurações
+  - Adicionar Servidor
+  - Excluir Servidor
+  - Gerenciar Servidores
 
 ---
 
@@ -288,6 +299,13 @@ Nenhuma configuração adicional é necessária para começar a usar.
 1. Com um arquivo ABL aberto e focado no editor, pressione **`F5`**
 2. O arquivo atual será enviado para compilação
 
+#### Opção 3: Menu Lateral (Selecionar Arquivos e Compilar)
+
+1. Abra o menu lateral da extensão em **ABL**
+2. Clique em **Selecionar Arquivos e Compilar**
+3. Selecione um ou mais arquivos no diálogo do sistema
+4. Siga o assistente de destino/banco normalmente
+
 #### Fluxo do Assistente (Ordem Atualizada)
 
 Para agilizar o fluxo, agora você informa primeiro o **destino** da compilação. Se o destino possuir um banco preferencial pré-configurado, a compilação ocorre **instantaneamente** sem novas perguntas!
@@ -297,7 +315,7 @@ Para agilizar o fluxo, agora você informa primeiro o **destino** da compilaçã
 │  1. Onde salvar os arquivos .r?                │
 │     ○ 🏠 Workspace Local                       │
 │     ○ 🖥️ 🐧 Servidor Linux   /mnt/prod/bin     │
-│     ○ 🖥️ 🪟 Servidor Windows   \\srv\hom\bin   │
+│     ○ 🖥️ 💻 Servidor Windows   \\srv\hom\bin   │
 │     ○ 📁 Selecionar Pasta...                   │
 │     ○ ➕ Configurar Novo Servidor...           │
 └────────────────────────────────────────────────┘
@@ -455,12 +473,16 @@ OpenEdge ABL: Gerenciar Servidores de Destino
 | Opção | Quem vê |
 |-------|---------|
 | 🐧 Linux | Apenas usuários com VSCode no Linux |
-| 🪟 Windows | Apenas usuários com VSCode no Windows |
+| 💻 Windows | Apenas usuários com VSCode no Windows |
 | 🌐 Ambas | Todos os usuários |
 
 4. Informe o **caminho** de destino:
    - **Selecionar Pasta** → abre o explorador de arquivos nativo do sistema operacional
    - **Digitar Caminho** → digitação manual (necessário para caminhos UNC: `\\servidor\share\bin`)
+5. Se o caminho for UNC e o host ainda não estiver confiável:
+  - A extensão solicita autorização para adicionar o host em `security.allowedUNCHosts`
+  - Após salvar a configuração do servidor, a extensão informa a necessidade de reiniciar o VSCode
+  - Você pode escolher **Reiniciar Agora** ou **Depois**
 
 #### ✏️ Editar Servidor
 
@@ -486,8 +508,8 @@ OpenEdge ABL: Gerenciar Servidores de Destino
 Os servidores são armazenados em um **arquivo dedicado da extensão**, completamente separado do `settings.json` do VSCode:
 
 ```
-Linux:   ~/.config/Code/User/globalStorage/douglasbarbosa.openedge-abl-linter/servers.json
-Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.openedge-abl-linter\servers.json
+Linux:   ~/.config/Code/User/globalStorage/douglasbarbosa.progress-compiler-tools/servers.json
+Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.progress-compiler-tools\servers.json
 ```
 
 ### Formato do `servers.json`
@@ -526,6 +548,10 @@ Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.openedge-abl-linter\se
 |--------------------|------------|-----------|
 | `OpenEdge ABL: ABL Compilar` | `abl-linter.compileRemote` | Compila arquivo(s) selecionado(s) ou aberto no editor |
 | `OpenEdge ABL: Gerenciar Servidores de Destino` | `abl-linter.manageServers` | Abre o gerenciador de servidores |
+| `OpenEdge ABL: Adicionar Servidor de Destino` | `abl-linter.addServer` | Abre diretamente o fluxo de adição de servidor |
+| `OpenEdge ABL: Excluir Servidor de Destino` | `abl-linter.removeServer` | Abre diretamente o fluxo de remoção de servidor |
+| `OpenEdge ABL: Abrir Configurações da Extensão` | `abl-linter.openSettings` | Abre as configurações da extensão filtradas por `abl-linter` |
+| `OpenEdge ABL: Selecionar Arquivos e Compilar` | `abl-linter.selectFilesAndCompile` | Permite escolher arquivos no diálogo e enviar para compilação |
 
 ---
 
@@ -551,6 +577,8 @@ Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.openedge-abl-linter\se
 │   ├── commands/
 │   │   ├── remoteCompile.ts      # Comando de compilação remota
 │   │   └── manageServers.ts      # Comando de gerenciamento de servidores
+│   ├── views/
+│   │   └── sidebarMenu.ts        # Menu lateral (Activity Bar) e atalhos de ação
 │   └── rules/                    # Regras individuais do linter ABL
 │
 ├── compile-server/               # Servidor de compilação Node.js (separado)
@@ -636,8 +664,8 @@ DLC=/usr/dlc          # Linux
 
 ### ❌ Servidores não aparecem após reiniciar o VSCode
 Verifique se o arquivo `servers.json` existe e está acessível:
-- **Linux:** `~/.config/Code/User/globalStorage/douglasbarbosa.openedge-abl-linter/servers.json`
-- **Windows:** `%APPDATA%\Code\User\globalStorage\douglasbarbosa.openedge-abl-linter\servers.json`
+- **Linux:** `~/.config/Code/User/globalStorage/douglasbarbosa.progress-compiler-tools/servers.json`
+- **Windows:** `%APPDATA%\Code\User\globalStorage\douglasbarbosa.progress-compiler-tools\servers.json`
 
 Use `OpenEdge ABL: Gerenciar Servidores de Destino → Abrir Arquivo de Configuração` para inspecionar o arquivo diretamente.
 
