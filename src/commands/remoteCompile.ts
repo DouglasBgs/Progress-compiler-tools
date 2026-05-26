@@ -9,7 +9,8 @@ import {
     readServers,
     saveServers,
     getServersForCurrentPlatform,
-    pickFolderDialog
+    pickFolderDialog,
+    ensureTrustedUncHost
 } from './manageServers';
 
 /**
@@ -129,7 +130,7 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         const availableServers = getServersForCurrentPlatform(allServers);
 
         const platformIcon = (p: string) =>
-            p === 'linux' ? '🐧' : p === 'windows' ? '🪟' : '🌐';
+            p === 'linux' ? '🐧' : p === 'windows' ? '💻' : '🌐';
 
         type PickItemTyped = vscode.QuickPickItem & { _type: string; serverObj?: TargetServer };
 
@@ -215,7 +216,7 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
 
             const platformItem = await vscode.window.showQuickPick([
                 { label: '🐧 Linux',   description: 'Apenas para usuários Linux',         value: 'linux'   },
-                { label: '🪟 Windows', description: 'Apenas para usuários Windows',        value: 'windows' },
+                { label: '💻 Windows', description: 'Apenas para usuários Windows',        value: 'windows' },
                 { label: '🌐 Ambas',   description: 'Funciona para Linux e Windows (any)', value: 'any'     },
             ], { placeHolder: 'Para qual plataforma é este servidor?', ignoreFocusOut: true });
             if (!platformItem) {
@@ -253,6 +254,12 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 return;
             }
 
+            const uncValidation = await ensureTrustedUncHost(newPath.trim());
+            if (!uncValidation.trusted) {
+                vscode.window.showWarningMessage('Configuração cancelada: host UNC não confiável.');
+                return;
+            }
+
             // Banco padrão para o novo servidor (opcional)
             const newDbItem = await vscode.window.showQuickPick([
                 { label: '$(dash) Não definir (perguntar na compilação)', value: undefined },
@@ -273,6 +280,18 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
             const fresh = await readServers();
             await saveServers([...fresh, newServer]);
             vscode.window.showInformationMessage(`✅ Servidor "${newName}" adicionado à lista de servidores!`);
+
+            if (uncValidation.restartRequired && uncValidation.host) {
+                const restartAction = await vscode.window.showWarningMessage(
+                    `Host UNC "${uncValidation.host}" adicionado em security.allowedUNCHosts. É necessário reiniciar o VS Code para aplicar totalmente essa configuração.`,
+                    'Reiniciar Agora',
+                    'Depois'
+                );
+
+                if (restartAction === 'Reiniciar Agora') {
+                    await vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            }
         }
 
         if (!targetBasePath) {

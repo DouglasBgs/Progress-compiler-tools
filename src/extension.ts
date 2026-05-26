@@ -1,8 +1,17 @@
 import * as vscode from 'vscode';
 import { analyzeDocument } from './diagnostics';
 import { registerRemoteCompileCommand } from './commands/remoteCompile';
-import { registerManageServersCommand } from './commands/manageServers';
+import {
+    registerAddServerCommand,
+    registerManageServersCommand,
+    registerRemoveServerCommand
+} from './commands/manageServers';
 import { initServersConfig } from './config/serversConfig';
+import {
+    registerOpenSettingsCommand,
+    registerSelectFilesAndCompileCommand,
+    registerSidebarMenu
+} from './views/sidebarMenu';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
@@ -51,6 +60,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Registra o comando de gerenciamento de servidores de destino
     registerManageServersCommand(context);
+    registerAddServerCommand(context);
+    registerRemoveServerCommand(context);
+
+    // Registra menu lateral da extensão
+    registerOpenSettingsCommand(context);
+    registerSelectFilesAndCompileCommand(context);
+    registerSidebarMenu(context);
 
     // Analisa documentos ABL já abertos (ao ativar a extensão), se habilitado
     const initialLintEnabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);

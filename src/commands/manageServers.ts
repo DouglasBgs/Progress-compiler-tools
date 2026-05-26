@@ -36,6 +36,90 @@ export function registerManageServersCommand(context: vscode.ExtensionContext) {
     context.subscriptions.push(disposable);
 }
 
+/**
+ * Registra o comando direto para adicionar servidor.
+ */
+export function registerAddServerCommand(context: vscode.ExtensionContext) {
+    const disposable = vscode.commands.registerCommand('abl-linter.addServer', async () => {
+        await addServer();
+    });
+    context.subscriptions.push(disposable);
+}
+
+/**
+ * Registra o comando direto para remover servidor.
+ */
+export function registerRemoveServerCommand(context: vscode.ExtensionContext) {
+    const disposable = vscode.commands.registerCommand('abl-linter.removeServer', async () => {
+        await removeServer();
+    });
+    context.subscriptions.push(disposable);
+}
+
+function extractUncHost(serverPath: string): string | undefined {
+    const normalized = serverPath.trim();
+    const match = normalized.match(/^[\\/]{2}([^\\/]+)[\\/]/);
+    return match?.[1];
+}
+
+/**
+ * Valida se o host UNC está em security.allowedUNCHosts e oferece inclusão automática.
+ */
+export interface UncTrustValidationResult {
+    trusted: boolean;
+    restartRequired: boolean;
+    host?: string;
+}
+
+async function promptRestartForUncChanges(host: string): Promise<void> {
+    const restartAction = await vscode.window.showWarningMessage(
+        `Host UNC "${host}" adicionado em security.allowedUNCHosts. É necessário reiniciar o VS Code para aplicar totalmente essa configuração.`,
+        'Reiniciar Agora',
+        'Depois'
+    );
+
+    if (restartAction === 'Reiniciar Agora') {
+        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+    }
+}
+
+export async function ensureTrustedUncHost(serverPath: string): Promise<UncTrustValidationResult> {
+    const host = extractUncHost(serverPath);
+
+    // Só valida caminhos UNC.
+    if (!host) {
+        return { trusted: true, restartRequired: false };
+    }
+
+    const securityConfig = vscode.workspace.getConfiguration('security');
+    const allowedHosts = securityConfig.get<string[]>('allowedUNCHosts', []);
+    const hostLower = host.toLowerCase();
+    const isAllowed = allowedHosts.some(h => h === '*' || h.toLowerCase() === hostLower);
+
+    if (isAllowed) {
+        return { trusted: true, restartRequired: false, host };
+    }
+
+    const action = await vscode.window.showWarningMessage(
+        `O host UNC "${host}" não está em security.allowedUNCHosts. Isso pode bloquear gravações em pastas remotas.`,
+        'Confiar neste host',
+        'Cancelar'
+    );
+
+    if (action !== 'Confiar neste host') {
+        vscode.window.showWarningMessage('Servidor não adicionado: host UNC não confiável.');
+        return { trusted: false, restartRequired: false, host };
+    }
+
+    await securityConfig.update(
+        'allowedUNCHosts',
+        [...allowedHosts, host],
+        vscode.ConfigurationTarget.Global
+    );
+
+    return { trusted: true, restartRequired: true, host };
+}
+
 async function showServerManager() {
     const servers = await readServers();
 
@@ -86,7 +170,7 @@ async function addServer() {
     // 2. Plataforma
     const platformItem = await vscode.window.showQuickPick([
         { label: '🐧 Linux',   description: 'Apenas para usuários Linux',           value: 'linux'   as const },
-        { label: '🪟 Windows', description: 'Apenas para usuários Windows',          value: 'windows' as const },
+        { label: '💻 Windows', description: 'Apenas para usuários Windows',          value: 'windows' as const },
         { label: '🌐 Ambas',   description: 'Funciona para Linux e Windows (any)',   value: 'any'     as const },
     ], { placeHolder: 'Para qual plataforma é este servidor?', ignoreFocusOut: true });
     if (!platformItem) { return; }
@@ -124,6 +208,11 @@ async function addServer() {
         return;
     }
 
+    const uncValidation = await ensureTrustedUncHost(serverPath.trim());
+    if (!uncValidation.trusted) {
+        return;
+    }
+
     // 4. Banco de Compilação Padrão (Opcional)
     const dbItem = await vscode.window.showQuickPick([
         { label: '$(dash) Não definir (perguntar na compilação)', value: undefined },
@@ -138,6 +227,10 @@ async function addServer() {
     const fresh = await readServers(); // relê antes de gravar
     await saveServers([...fresh, newServer]);
     vscode.window.showInformationMessage(`✅ Servidor "${name}" (${platform}) adicionado com sucesso!`);
+
+    if (uncValidation.restartRequired && uncValidation.host) {
+        await promptRestartForUncChanges(uncValidation.host);
+    }
 }
 
 async function editServer() {
@@ -174,7 +267,7 @@ async function editServer() {
     // Plataforma
     const platformItem = await vscode.window.showQuickPick([
         { label: '🐧 Linux',   description: 'Apenas para usuários Linux',         value: 'linux'   as const },
-        { label: '🪟 Windows', description: 'Apenas para usuários Windows',        value: 'windows' as const },
+        { label: '💻 Windows', description: 'Apenas para usuários Windows',        value: 'windows' as const },
         { label: '🌐 Ambas',   description: 'Funciona para Linux e Windows (any)', value: 'any'     as const },
     ].map(item => ({ ...item, picked: item.value === old.platform })),
     { placeHolder: 'Para qual plataforma é este servidor?', ignoreFocusOut: true });
@@ -206,6 +299,11 @@ async function editServer() {
 
     if (!serverPath) { return; }
 
+    const uncValidation = await ensureTrustedUncHost(serverPath.trim());
+    if (!uncValidation.trusted) {
+        return;
+    }
+
     // Banco de Compilação Padrão (Opcional)
     const dbItem = await vscode.window.showQuickPick([
         { label: '$(dash) Não definir (perguntar na compilação)', value: undefined, picked: old.dbType === undefined },
@@ -221,6 +319,10 @@ async function editServer() {
     updated[idx] = { name: name.trim(), path: serverPath.trim(), platform, dbType };
     await saveServers(updated);
     vscode.window.showInformationMessage(`✅ Servidor "${name}" atualizado com sucesso!`);
+
+    if (uncValidation.restartRequired && uncValidation.host) {
+        await promptRestartForUncChanges(uncValidation.host);
+    }
 }
 
 async function removeServer() {
