@@ -47,7 +47,13 @@
       "onCommand:abl-linter.addServer",
       "onCommand:abl-linter.removeServer",
       "onCommand:abl-linter.openSettings",
-      "onCommand:abl-linter.selectFilesAndCompile"
+      "onCommand:abl-linter.selectFilesAndCompile",
+      "onCommand:abl-linter.toggleLinting",
+      "onCommand:abl-linter.selectRepository",
+      "onCommand:abl-linter.clearDiagnostics",
+      "onCommand:abl-linter.reloadWindow",
+      "onCommand:abl-linter.openTerminal",
+      "onCommand:abl-linter.analyzeLog"
     ],
     "commands": [
       {
@@ -85,6 +91,24 @@
         "title": "Selecionar Arquivos e Compilar",
         "category": "OpenEdge ABL",
         "icon": "$(files)"
+      },
+      {
+        "command": "abl-linter.toggleLinting",
+        "title": "Toggle Linting em Tempo Real",
+        "category": "OpenEdge ABL",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "abl-linter.selectRepository",
+        "title": "Selecionar Repositório de Compilação",
+        "category": "OpenEdge ABL",
+        "icon": "$(repo)"
+      },
+      {
+        "command": "abl-linter.analyzeLog",
+        "title": "Analisar Log com IA",
+        "category": "OpenEdge ABL",
+        "icon": "$(graph)"
       }
     ],
     "viewsContainers": {
@@ -173,6 +197,11 @@
           "default": false,
           "markdownDescription": "Habilita a seleção do **Repositório de Compilação**.\n\nQuando habilitado, o repositório escolhido em `#abl-linter.compilationRepository#` será enviado ao servidor de compilação para resolver os caminhos de `.pf` e `.ini`.\n\nQuando desabilitado, o servidor usará o repositório padrão configurado internamente."
         },
+        "abl-linter.includeGitChangedIncludes": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Quando habilitado, ao compilar um arquivo ABL (`.p`, `.w`, `.cls`) o compilador também enviará automaticamente os **includes** (`.i`) referenciados que estejam **modificados no Git** (staged ou unstaged)."
+        },
         "abl-linter.compilationRepository": {
           "type": "string",
           "default": "EMS2.08",
@@ -197,6 +226,21 @@
             "HUB"
           ],
           "markdownDescription": "Repositório preferido de compilação do Progress OpenEdge.\n\nEste valor será utilizado para resolver os caminhos de `.pf` e `.ini` no servidor de compilação.\n\n⚠️ Esta configuração só tem efeito quando `#abl-linter.enableCompilationRepository#` estiver habilitado."
+        },
+        "abl-linter.aiApiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Chave de API para análise inteligente de logs (OpenAI, Azure OpenAI ou compatível).\n\n🔑 Obtenha sua chave em [platform.openai.com](https://platform.openai.com/api-keys)"
+        },
+        "abl-linter.aiApiUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1/chat/completions",
+          "markdownDescription": "URL da API de IA para análise de logs.\n\nSuporta qualquer endpoint compatível com a API OpenAI (Azure, Ollama local, etc)."
+        },
+        "abl-linter.aiModel": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "markdownDescription": "Modelo de IA a ser utilizado na análise de logs.\n\nExemplos: `gpt-4o-mini`, `gpt-4o`, `gpt-3.5-turbo`"
         }
       }
     },
