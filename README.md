@@ -38,6 +38,8 @@ Extensão para Visual Studio Code que oferece análise estática de código **Op
 - Suporte a quatro tipos de compilação/bancos de dados: **Progress**, **SQL Server**, **Oracle** e **Patch**
 - Envio dos fontes em Base64 ao servidor — **sem dependência de drives de rede** no cliente
 - Retorno dos binários `.r` compilados diretamente para o VSCode
+- Resumo dos fontes enviados exibido no canal **ABL Compiler** enquanto aguarda a fila de compilação
+- Opção para incluir automaticamente includes (`.i`) modificadas no Git durante a compilação
 - Exibição detalhada de erros de compilação no canal **ABL Compiler** (Output)
 - Exclusão automática de `.r` inválidos em caso de falha de compilação
 
@@ -76,7 +78,7 @@ Ao iniciar a compilação, você escolhe primeiro onde salvar os binários. Caso
 ### Cliente (VSCode)
 - Visual Studio Code `>= 1.85.0`
 - Workspace aberto (pasta de projeto)
-- Os arquivos-fonte ABL devem estar dentro de uma pasta **`src/`** na raiz do workspace
+- Estrutura de fontes ABL preferencialmente dentro de uma pasta **`src/`** na raiz do workspace
 
 ### Servidor de Compilação
 - Node.js `>= 18`
@@ -255,6 +257,7 @@ Por padrão, a extensão analisa o código automaticamente ao abrir e salvar arq
 | `abl-linter.enableRealTimeLinting` | `boolean` | `true` | Habilita/desabilita a correção de código em tempo real |
 | `abl-linter.enableCompilationRepository` | `boolean` | `false` | Habilita a seleção do repositório de compilação |
 | `abl-linter.compilationRepository` | `string` | `"EMS2.08"` | Repositório preferido (ex: EMS2, CRM, etc.) |
+| `abl-linter.includeGitChangedIncludes` | `boolean` | `false` | Inclui automaticamente includes (`.i`) modificadas no Git quando encontradas nas referências dos fontes compilados |
 
 ### Repositório de Compilação
 
@@ -331,7 +334,7 @@ Para agilizar o fluxo, agora você informa primeiro o **destino** da compilaçã
 
 #### Estrutura de Pastas do Workspace
 
-> ⚠️ **Importante:** Os arquivos-fonte ABL precisam estar obrigatoriamente dentro de uma pasta **`src/`** na raiz do workspace para que a compilação funcione corretamente.
+> ℹ️ **Recomendado:** manter os arquivos-fonte ABL em uma pasta **`src/`** na raiz do workspace para preservar o mapeamento de caminhos esperado no envio e no retorno dos `.r`.
 
 A extensão utiliza a pasta `src/` como referência para montar os caminhos de compilação e destino dos binários `.r`. A estrutura esperada é:
 
@@ -349,7 +352,7 @@ meu-projeto/                   ← Workspace aberto no VSCode
 └── ...
 ```
 
-Arquivos fora da pasta `src/` **não serão reconhecidos** pela compilação remota.
+Arquivos fora da pasta `src/` podem ser compilados, mas o mapeamento de caminho final pode variar conforme a estrutura do projeto.
 
 #### Comportamento do caminho dos arquivos `.r`
 
@@ -406,6 +409,16 @@ Além do Explorer, é possível compilar fontes diretamente pela **aba de Source
 5. Siga o assistente normalmente (destino dos `.r` → banco de dados se necessário)
 
 > O botão **ABL Compilar** também aparece como um ícone **inline** ao lado de cada arquivo na lista de mudanças, permitindo compilar rapidamente um único fonte com um clique.
+
+#### Includes modificadas no Git (opcional)
+
+Quando a configuração `abl-linter.includeGitChangedIncludes` estiver habilitada, a extensão:
+
+1. Lê os fontes selecionados para compilação.
+2. Identifica referências de include no padrão ABL (ex: `{abl/file.i}`).
+3. Usa o buscador de arquivos do próprio VSCode para localizar o caminho real da include no workspace.
+4. Verifica no Git (`staged` e `unstaged`) se essa include está modificada.
+5. Adiciona automaticamente a include modificada ao payload da compilação.
 
 #### Cenários de uso
 

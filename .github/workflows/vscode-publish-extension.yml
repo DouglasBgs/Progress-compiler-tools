@@ -13,15 +13,18 @@ jobs:
   publish:
     name: Build & Publish Extension
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install Dependencies
@@ -30,9 +33,30 @@ jobs:
       - name: Run Linter / Type-Check
         run: npm run lint
 
-      - name: Publish to VS Code Marketplace
-        uses: HaaLeo/publish-vscode-extension@v2
-        with:
-          pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-          registryUrl: https://marketplace.visualstudio.com
+      - name: Publish to VS Code Marketplace (retry)
+        env:
+          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: |
+          if [[ -z "$VS_MARKETPLACE_TOKEN" ]]; then
+            echo "Secret VS_MARKETPLACE_TOKEN não configurado." >&2
+            exit 1
+          fi
+
+          for attempt in 1 2 3; do
+            echo "Tentativa de publicação ${attempt}/3..."
+
+            if npx @vscode/vsce@latest publish --pat "$VS_MARKETPLACE_TOKEN"; then
+              echo "Publicação concluída com sucesso."
+              exit 0
+            fi
+
+            if [[ "$attempt" -lt 3 ]]; then
+              wait_seconds=$((attempt * 45))
+              echo "Falha transitória ao publicar. Nova tentativa em ${wait_seconds}s..."
+              sleep "$wait_seconds"
+            fi
+          done
+
+          echo "Falha ao publicar após 3 tentativas." >&2
+          exit 1
 

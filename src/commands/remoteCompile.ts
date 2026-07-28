@@ -3,6 +3,7 @@ import axios from 'axios';
 import WebSocket from 'ws';
 import * as path from 'path';
 import * as os from 'os';
+import { execSync } from 'child_process';
 import { getOrPromptCompilerUrl } from '../extension';
 import {
     TargetServer,
@@ -28,6 +29,112 @@ const outputChannel = vscode.window.createOutputChannel('ABL Compiler');
  * Aceita qualquer arquivo com extensão para envio ao servidor (a filtragem de compilação ocorre no servidor)
  */
 export const ABL_COMPILE_REGEX = /\.[a-zA-Z0-9_\-]+$/i;
+
+/**
+ * Extrai caminhos de includes ABL do conteúdo de um arquivo.
+ * Padrão: {caminho/arquivo.i} ou {arquivo.m1} ou {arquivo.m} ou {arquivo &ARG=valor}
+ * Aceita qualquer extensão, não apenas .i
+ */
+function extractIncludePaths(content: string): string[] {
+    // Captura tudo dentro de chaves com uma extensão (simples e flexível)
+    const includeRegex = /\{([^{}&\s][^{}]*\.[a-zA-Z0-9]+)\}/gi;
+    const includes: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = includeRegex.exec(content)) !== null) {
+        // Remove argumentos inline (ex: {file.i &ARG=X} -> file.i)
+        const raw = match[1].trim().split(/\s+/)[0];
+        if (raw) {
+            includes.push(raw.replace(/\\/g, '/'));
+        }
+    }
+    return includes;
+}
+
+/**
+ * Retorna conjunto de caminhos relativos de arquivos modificados no git (staged + unstaged).
+ */
+function getGitModifiedFiles(workspaceRoot: string): Set<string> {
+    try {
+        const output = execSync('git status --porcelain', {
+            cwd: workspaceRoot,
+            encoding: 'utf8',
+            timeout: 5000
+        });
+        const modified = new Set<string>();
+        for (const line of output.split('\n')) {
+            if (line.length < 4) { continue; }
+            // Formato: XY ARQUIVO  ou  XY "ARQUIVO" (com espaços)
+            const filePath = line.substring(3).trim().replace(/^"(.*)"$/, '$1');
+            if (filePath) {
+                modified.add(filePath.replace(/\\/g, '/'));
+            }
+        }
+        return modified;
+    } catch {
+        return new Set<string>();
+    }
+}
+
+/**
+ * Identifica apenas as includes diretas dos arquivos pai (sources principais).
+ * NÃO processa includes de outras sources, apenas do arquivo principal.
+ * Processa até 10 includes por arquivo pai, retornando os que estão modificados no git.
+ */
+async function collectModifiedIncludes(
+    urisToCompile: vscode.Uri[],
+    workspaceRoot: string,
+    gitModified: Set<string>,
+    alreadyAdded: Set<string>
+): Promise<vscode.Uri[]> {
+    const result: vscode.Uri[] = [];
+    const resolvedIncludeCache = new Map<string, vscode.Uri | undefined>();
+
+    // Processa apenas os arquivos pai (sources principais)
+    for (const fileUri of urisToCompile) {
+        let content: string;
+        try {
+            const raw = await vscode.workspace.fs.readFile(fileUri);
+            content = Buffer.from(raw).toString('utf8');
+        } catch {
+            continue;
+        }
+
+        // Extrai as includes diretas do arquivo pai
+        const includePaths = extractIncludePaths(content);
+    
+
+        for (let i = 0; i < includePaths.length; i++) {
+            const includePath = includePaths[i];
+            const normalizedInclude = includePath.replace(/\\/g, '/').replace(/^\/+/, '');
+
+            let includeUri = resolvedIncludeCache.get(normalizedInclude);
+            if (includeUri === undefined) {
+                const matches = await vscode.workspace.findFiles(
+                    `**/${normalizedInclude}`,
+                    '**/{node_modules,.git}/**',
+                    1
+                );
+                includeUri = matches[0];
+                resolvedIncludeCache.set(normalizedInclude, includeUri);
+            }
+
+            if (!includeUri) {
+                continue;
+            }
+
+            const fullPath = includeUri.fsPath;
+            const gitRelative = path.relative(workspaceRoot, fullPath).replace(/\\/g, '/');
+
+            // Se modificado no git e ainda não adicionado ao payload
+            if (gitModified.has(gitRelative) && !alreadyAdded.has(fullPath)) {
+                alreadyAdded.add(fullPath);
+                result.push(includeUri);
+            }
+        }
+    }
+
+    return result;
+}
 
 /**
  * Extrai a URI de um argumento (Explorer Uri ou SCM SourceControlResourceState)
@@ -342,18 +449,37 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         // Salva buffers pendentes
         await vscode.workspace.saveAll(false);
 
+        // ── Includes modificados no Git ───────────────────────────────────────
+        const cfg = vscode.workspace.getConfiguration('abl-linter');
+        if (cfg.get<boolean>('includeGitChangedIncludes', false)) {
+            const gitModified = getGitModifiedFiles(workspaceFolder.uri.fsPath);
+            if (gitModified.size > 0) {
+                const modifiedIncludes = await collectModifiedIncludes(
+                    urisToCompile,
+                    workspaceFolder.uri.fsPath,
+                    gitModified,
+                    addedPaths
+                );
+                if (modifiedIncludes.length > 0) {
+                    urisToCompile.push(...modifiedIncludes);
+                    vscode.window.showInformationMessage(
+                        `🔗 ${modifiedIncludes.length} include(s) modificado(s) no Git incluído(s) na compilação.`
+                    );
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         const filesPayload: FilePayload[] = [];
         const pathMapping = new Map<string, string>();
+        
+            await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Compilação Remota ABL',
+                }, async (progress) => {
 
-        await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: 'Compilação Remota ABL',
-                cancellable: false
-            }, async (progress) => {
-
-                // ── 1. Montar payload ──────────────────────────────────────
-                progress.report({ message: `Lendo ${urisToCompile.length} arquivo(s)...` });
+                    // ── 1. Montar payload ──────────────────────────────────────
+                    progress.report({ message: `Lendo ${urisToCompile.length} arquivo(s)...` });
 
                 for (const fileUri of urisToCompile) {
                     const relativePath = path.relative(workspaceFolder.uri.fsPath, fileUri.fsPath);
@@ -405,6 +531,18 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 }
 
                 const jobId = response.data.jobId;
+
+                // ── 2.5. Exibir resumo dos arquivos enviados ────────────────────
+                outputChannel.clear();
+                outputChannel.appendLine('=== RESUMO DE ARQUIVOS ENVIADOS ===');
+                outputChannel.appendLine(`JobId: ${jobId}`);
+                outputChannel.appendLine(`Banco: ${selectedDb}${patchInfo ? ` | Patch: ${patchInfo.patchVersion}` : ''}`);
+                outputChannel.appendLine(`Total: ${filesPayload.length} arquivo(s)\n`);
+                for (const file of filesPayload) {
+                    outputChannel.appendLine(`  • ${file.relativePath}`);
+                }
+                outputChannel.appendLine('');
+                outputChannel.show(false);
                 
                 // ── 3. Lidar com Fila e Status via WebSocket ────────────────────
                 // Troca protocolo http/https por ws/wss
@@ -420,7 +558,7 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                         try {
                             const payload = JSON.parse(data.toString());
                             if (payload.status === 'processing') {
-                                progress.report({ message: `Processando os arquivos no OpenEdge...` });
+                                progress.report({ message: `Processando os arquivos no OpenEdge... (Clique X para cancelar)` });
                             } else if (payload.status === 'completed') {
                                 ws.close();
                                 resolve(payload);
@@ -523,7 +661,7 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 );
             });
 
-        } catch (error: any) {
+        } catch (error: any) {           
             console.error('Erro na compilação remota', error);
             const msg = error.response?.data?.message || error.message || 'Erro desconhecido';
             vscode.window.showErrorMessage(`Falha na Compilação Remota: ${msg}`);

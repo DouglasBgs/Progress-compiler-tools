@@ -10,8 +10,10 @@ import { initServersConfig } from './config/serversConfig';
 import {
     registerOpenSettingsCommand,
     registerSelectFilesAndCompileCommand,
-    registerSidebarMenu
+    registerSidebarMenu,
+    registerFacilitatorCommands
 } from './views/sidebarMenu';
+import { registerLogAnalyzerCommand } from './commands/logAnalyzer';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
@@ -66,7 +68,16 @@ export function activate(context: vscode.ExtensionContext) {
     // Registra menu lateral da extensão
     registerOpenSettingsCommand(context);
     registerSelectFilesAndCompileCommand(context);
+    registerFacilitatorCommands(context);
+    registerLogAnalyzerCommand(context);
     registerSidebarMenu(context);
+
+    // Comando interno para limpar diagnósticos (usado pelo facilitador)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('abl-linter.clearAllDiagnostics', () => {
+            diagnosticCollection.clear();
+        })
+    );
 
     // Analisa documentos ABL já abertos (ao ativar a extensão), se habilitado
     const initialLintEnabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);
