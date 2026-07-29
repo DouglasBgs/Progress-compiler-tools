@@ -36,15 +36,19 @@ export const ABL_COMPILE_REGEX = /\.[a-zA-Z0-9_\-]+$/i;
  * Aceita qualquer extensão, não apenas .i
  */
 function extractIncludePaths(content: string): string[] {
-    // Captura tudo dentro de chaves com uma extensão (simples e flexível)
-    const includeRegex = /\{([^{}&\s][^{}]*\.[a-zA-Z0-9]+)\}/gi;
+    // Captura apenas o primeiro token dentro das chaves, ignorando parâmetros após o nome do include.
+    const includeRegex = /\{\s*([^{}\s&]+?\.[a-zA-Z0-9]+)(?:\s+[^{}]*)?\}/gi;
     const includes: string[] = [];
+    const seenIncludes = new Set<string>();
     let match: RegExpExecArray | null;
     while ((match = includeRegex.exec(content)) !== null) {
-        // Remove argumentos inline (ex: {file.i &ARG=X} -> file.i)
-        const raw = match[1].trim().split(/\s+/)[0];
+        const raw = match[1].trim();
         if (raw) {
-            includes.push(raw.replace(/\\/g, '/'));
+            const normalized = raw.replace(/\\/g, '/');
+            if (!seenIncludes.has(normalized)) {
+                seenIncludes.add(normalized);
+                includes.push(normalized);
+            }
         }
     }
     return includes;
