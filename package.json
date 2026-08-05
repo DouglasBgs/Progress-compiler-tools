@@ -14,7 +14,6 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Linters",
     "Other",
     "Debuggers",
     "Programming Languages"
@@ -48,12 +47,12 @@
       "onCommand:abl-linter.removeServer",
       "onCommand:abl-linter.openSettings",
       "onCommand:abl-linter.selectFilesAndCompile",
-      "onCommand:abl-linter.toggleLinting",
       "onCommand:abl-linter.selectRepository",
-      "onCommand:abl-linter.clearDiagnostics",
       "onCommand:abl-linter.reloadWindow",
       "onCommand:abl-linter.openTerminal",
-      "onCommand:abl-linter.analyzeLog"
+      "onCommand:abl-linter.analyzeLog",
+      "onCommand:abl-linter.openIncludeAside",
+      "onCommand:abl-linter.openProcedure"
     ],
     "commands": [
       {
@@ -93,12 +92,6 @@
         "icon": "$(files)"
       },
       {
-        "command": "abl-linter.toggleLinting",
-        "title": "Toggle Linting em Tempo Real",
-        "category": "OpenEdge ABL",
-        "icon": "$(eye)"
-      },
-      {
         "command": "abl-linter.selectRepository",
         "title": "Selecionar Repositório de Compilação",
         "category": "OpenEdge ABL",
@@ -109,6 +102,18 @@
         "title": "Analisar Log com IA",
         "category": "OpenEdge ABL",
         "icon": "$(graph)"
+      },
+      {
+        "command": "abl-linter.openIncludeAside",
+        "title": "Abrir Include ao Lado",
+        "category": "OpenEdge ABL",
+        "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "abl-linter.openProcedure",
+        "title": "Ir para Procedure ABL",
+        "category": "OpenEdge ABL",
+        "icon": "$(go-to-file)"
       }
     ],
     "viewsContainers": {
@@ -186,11 +191,6 @@
           "type": "string",
           "default": "",
           "description": "URL do Servidor de Aplicação de compilação ABL (Node API)."
-        },
-        "abl-linter.enableRealTimeLinting": {
-          "type": "boolean",
-          "default": true,
-          "description": "Habilita ou desabilita a correção de código em tempo real ao abrir e salvar arquivos Progress ABL."
         },
         "abl-linter.enableCompilationRepository": {
           "type": "boolean",

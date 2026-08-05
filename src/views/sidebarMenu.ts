@@ -48,7 +48,6 @@ class SidebarMenuProvider implements vscode.TreeDataProvider<SidebarMenuItem> {
         ]),
         createSection('Configuração', 'settings-gear', [
             createItem('Ajustar Configurações', 'abl-linter.openSettings', 'Abrir configurações da extensão', 'settings-gear'),
-            createItem('Toggle Linting em Tempo Real', 'abl-linter.toggleLinting', 'Habilitar/Desabilitar análise em tempo real', 'eye'),
             createItem('Selecionar Repositório', 'abl-linter.selectRepository', 'Alterar repositório de compilação', 'repo'),
         ]),
         createSection('Facilitadores', 'lightbulb', [
@@ -116,18 +115,6 @@ export function registerSelectFilesAndCompileCommand(context: vscode.ExtensionCo
 }
 
 export function registerFacilitatorCommands(context: vscode.ExtensionContext) {
-    // Toggle Linting em Tempo Real
-    context.subscriptions.push(
-        vscode.commands.registerCommand('abl-linter.toggleLinting', async () => {
-            const config = vscode.workspace.getConfiguration('abl-linter');
-            const current = config.get<boolean>('enableRealTimeLinting', true);
-            await config.update('enableRealTimeLinting', !current, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage(
-                `Linting em tempo real ${!current ? 'habilitado' : 'desabilitado'}.`
-            );
-        })
-    );
-
     // Selecionar Repositório de Compilação
     context.subscriptions.push(
         vscode.commands.registerCommand('abl-linter.selectRepository', async () => {

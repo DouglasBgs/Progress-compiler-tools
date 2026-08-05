@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { analyzeDocument } from './diagnostics';
 import { registerRemoteCompileCommand } from './commands/remoteCompile';
 import {
     registerAddServerCommand,
@@ -14,48 +13,17 @@ import {
     registerFacilitatorCommands
 } from './views/sidebarMenu';
 import { registerLogAnalyzerCommand } from './commands/logAnalyzer';
-
-let diagnosticCollection: vscode.DiagnosticCollection;
+import { registerAblIncludeProviders } from './providers/ablIncludeProvider';
+import { registerAblProcedureProviders } from './providers/ablProcedureProvider';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('OpenEdge ABL Linter is now active!');
+    console.log('OpenEdge ABL Progress Compiler Tools is now active!');
 
     // Inicializa o gerenciador de servidores (servers.json no globalStorage da extensão)
     initServersConfig(context);
 
-    // Verifica se o URL do servidor de compilação está configurado (Assistente Incial)
+    // Verifica se o URL do servidor de compilação está configurado (Assistente Inicial)
     getOrPromptCompilerUrl();
-
-    // Cria a coleção de diagnósticos
-    diagnosticCollection = vscode.languages.createDiagnosticCollection('abl-linter');
-    context.subscriptions.push(diagnosticCollection);
-
-    // Extensões ABL suportadas
-    const ablExtensions = ['.p', '.w', '.cls', '.i'];
-
-    // Função auxiliar para verificar se o documento é ABL
-    function isAblDocument(document: vscode.TextDocument): boolean {
-        if (document.languageId === 'abl') {
-            return true;
-        }
-        const fileName = document.fileName.toLowerCase();
-        return ablExtensions.some(ext => fileName.endsWith(ext));
-    }
-
-    // Executa análise ao salvar o arquivo (se habilitado)
-    const onSaveDisposable = vscode.workspace.onDidSaveTextDocument((document) => {
-        const lintEnabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);
-        if (lintEnabled && isAblDocument(document)) {
-            const diagnostics = analyzeDocument(document);
-            diagnosticCollection.set(document.uri, diagnostics);
-        }
-    });
-    context.subscriptions.push(onSaveDisposable);
-
-    // Limpa diagnósticos ao fechar o arquivo
-    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(doc => {
-        diagnosticCollection.delete(doc.uri);
-    }));
 
     // Registra o comando de compilação remota do VSCode Explorer context menu
     registerRemoteCompileCommand(context);
@@ -72,44 +40,11 @@ export function activate(context: vscode.ExtensionContext) {
     registerLogAnalyzerCommand(context);
     registerSidebarMenu(context);
 
-    // Comando interno para limpar diagnósticos (usado pelo facilitador)
-    context.subscriptions.push(
-        vscode.commands.registerCommand('abl-linter.clearAllDiagnostics', () => {
-            diagnosticCollection.clear();
-        })
-    );
+    // Registra providers de includes ABL (navegação, hover, links)
+    registerAblIncludeProviders(context);
 
-    // Analisa documentos ABL já abertos (ao ativar a extensão), se habilitado
-    const initialLintEnabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);
-    if (initialLintEnabled) {
-        vscode.workspace.textDocuments.forEach((document) => {
-            if (isAblDocument(document)) {
-                const diagnostics = analyzeDocument(document);
-                diagnosticCollection.set(document.uri, diagnostics);
-            }
-        });
-    }
-
-    // Reage a mudanças na configuração de linting em tempo real
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration('abl-linter.enableRealTimeLinting')) {
-                const enabled = vscode.workspace.getConfiguration('abl-linter').get<boolean>('enableRealTimeLinting', true);
-                if (enabled) {
-                    // Re-analisa todos os documentos ABL abertos
-                    vscode.workspace.textDocuments.forEach((document) => {
-                        if (isAblDocument(document)) {
-                            const diagnostics = analyzeDocument(document);
-                            diagnosticCollection.set(document.uri, diagnostics);
-                        }
-                    });
-                } else {
-                    // Limpa todos os diagnósticos quando desabilitado
-                    diagnosticCollection.clear();
-                }
-            }
-        })
-    );
+    // Registra providers de procedures ABL (definição, hover com parâmetros)
+    registerAblProcedureProviders(context);
 }
 
 export async function getOrPromptCompilerUrl(): Promise<string> {
@@ -142,7 +77,6 @@ export async function getOrPromptCompilerUrl(): Promise<string> {
 }
 
 export function deactivate() {
-    if (diagnosticCollection) {
-        diagnosticCollection.dispose();
-    }
+    // noop
 }
+
