@@ -1,6 +1,6 @@
-# OpenEdge ABL Linter & Remote Compiler
+# OpenEdge ABL Remote Compiler
 
-Extensão para Visual Studio Code que oferece análise estática de código **OpenEdge ABL** (Progress) em tempo real e compilação remota de arquivos `.p`, `.py`, `.w`, `.cls` e `.i` diretamente do editor.
+Extensão para Visual Studio Code que oferece compilação remota de arquivos **OpenEdge ABL** (Progress) `.p`, `.py`, `.w`, `.cls` e `.i` diretamente do editor.
 
 ---
 
@@ -18,19 +18,12 @@ Extensão para Visual Studio Code que oferece análise estática de código **Op
 - [Atalhos de Teclado](#-atalhos-de-teclado)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Fluxo Completo de Compilação](#-fluxo-completo-de-compilação)
-- [Regras do Linter](#-regras-do-linter)
 - [CI/CD e Releases Automáticos](#-cicd-e-releases-automáticos)
 - [Solução de Problemas](#-solução-de-problemas)
 
 ---
 
 ## ✨ Funcionalidades
-
-### 🔍 Linter Estático (ABL)
-- Análise de código em tempo real ao **salvar** arquivos ABL
-- Detecção automática de arquivos `.p`, `.py`, `.w`, `.cls` e `.i`
-- Exibição de erros e avisos direto na aba **Problems** do VSCode
-- Limpeza automática de diagnósticos ao fechar o arquivo
 
 ### 🔨 Compilação Remota
 - Compilação de um ou **múltiplos arquivos** selecionados no Explorer ou Git (Source Control)
@@ -241,20 +234,9 @@ Ou configure manualmente via `Arquivo → Preferências → Configurações`:
 
 > O URL é salvo globalmente no `settings.json` do usuário e funciona em qualquer workspace.
 
-### Linting em Tempo Real
-
-Por padrão, a extensão analisa o código automaticamente ao abrir e salvar arquivos ABL. Para **desabilitar** essa análise em tempo real, defina a configuração:
-
-```json
-{
-  "abl-linter.enableRealTimeLinting": false
-}
-```
-
 | Configuração | Tipo | Padrão | Descrição |
 |---|---|---|---|
 | `abl-linter.compilerUrl` | `string` | `""` | URL do servidor de compilação ABL |
-| `abl-linter.enableRealTimeLinting` | `boolean` | `true` | Habilita/desabilita a correção de código em tempo real |
 | `abl-linter.enableCompilationRepository` | `boolean` | `false` | Habilita a seleção do repositório de compilação |
 | `abl-linter.compilationRepository` | `string` | `"EMS2.08"` | Repositório preferido (ex: EMS2, CRM, etc.) |
 | `abl-linter.includeGitChangedIncludes` | `boolean` | `false` | Inclui automaticamente includes (`.i`) modificadas no Git quando encontradas nas referências dos fontes compilados |
@@ -272,19 +254,10 @@ Para utilizar diferentes repositórios de compilação (como CRM, EMS5, etc.), v
 
 > ⚠️ **Retrocompatibilidade:** Se `enableCompilationRepository` estiver desabilitado, a extensão não enviará o repositório, e o servidor usará o valor padrão definido em `defaultRepository` (ou `EMS2.08`).
 
-> A alteração é **reativa**: ao desabilitar, todos os diagnósticos são limpos imediatamente; ao reabilitar, todos os arquivos ABL abertos são reanalisados — **sem necessidade de recarregar o VSCode**.
 
 ---
 
 ## 📖 Como Usar
-
-### Linter em Tempo Real
-
-O linter é ativado **automaticamente** ao abrir ou salvar qualquer arquivo com extensão `.p`, `.py`, `.w`, `.cls` ou `.i`. Os erros aparecem na aba **Problems** (`Ctrl+Shift+M`) do VSCode.
-
-Nenhuma configuração adicional é necessária para começar a usar.
-
-> 💡 **Dica:** Caso o linting em tempo real esteja impactando a performance ou não seja desejado, é possível desabilitá-lo via configuração `abl-linter.enableRealTimeLinting`. Consulte a seção [Configuração da Extensão no VSCode](#-configuração-da-extensão-no-vscode) para mais detalhes.
 
 ---
 
@@ -584,7 +557,6 @@ Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.progress-compiler-tool
 /
 ├── src/                          # Código-fonte da extensão VSCode
 │   ├── extension.ts              # Ponto de entrada (activate/deactivate)
-│   ├── diagnostics.ts            # Motor do linter estático ABL
 │   ├── config/
 │   │   └── serversConfig.ts      # Gerenciador do arquivo servers.json
 │   ├── commands/
@@ -592,7 +564,6 @@ Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.progress-compiler-tool
 │   │   └── manageServers.ts      # Comando de gerenciamento de servidores
 │   ├── views/
 │   │   └── sidebarMenu.ts        # Menu lateral (Activity Bar) e atalhos de ação
-│   └── rules/                    # Regras individuais do linter ABL
 │
 ├── compile-server/               # Servidor de compilação Node.js (separado)
 │   ├── src/
@@ -629,31 +600,6 @@ VSCode (Cliente)                        Servidor (Node.js + Progress)
     SE sucesso → pergunta destino
 14. Grava .r no destino escolhido
 ```
-
----
-
-## 🔍 Regras do Linter
-
-| Regra | Severidade | Descrição |
-|-------|------------|-----------|
-| **Falta de ponto final** | 🔴 Error | Statements que não terminam com `.` |
-| **Blocos END desbalanceados** | 🔴 Error | Blocos `DO`, `FOR`, `REPEAT` sem `END` correspondente |
-| **IF sem THEN** | 🔴 Error | `IF` sem a palavra-chave `THEN` |
-| **Variável não definida** | 🟡 Warning | Variáveis usadas sem `DEFINE VARIABLE` ou `VAR` |
-| **String não fechada** | 🔴 Error | Aspas abertas sem fechamento |
-| **= em condição** | 🟡 Warning | Uso de `=` em vez de `EQ` em `IF`/`WHERE` |
-| **FIND sem NO-ERROR** | 🟡 Warning | `FIND` sem tratamento `NO-ERROR` |
-| **DO vazio** | 🔴 Error | Blocos `DO:` seguidos imediatamente de `END.` |
-| **FOR EACH sem lock explícito** | 🟡 Warning | `FOR EACH`/`FIRST`/`LAST` sem `NO-LOCK`, `SHARE-LOCK` ou `EXCLUSIVE-LOCK` |
-| **CASE sem WHEN** | 🔴 Error | `CASE` sem nenhuma cláusula `WHEN` |
-| **DEFINE VARIABLE sem NO-UNDO** | 🟡 Warning | `DEFINE VARIABLE` sem a flag `NO-UNDO` |
-| **DELETE OBJECT sem NO-ERROR** | 🟡 Warning | `DELETE OBJECT` sem tratamento de erro |
-| **CASE sem OTHERWISE** | 🔵 Info | Sugestão de adicionar `OTHERWISE` em blocos `CASE` |
-| **FUNCTION sem RETURN** | 🟡 Warning | `FUNCTION` sem statement de `RETURN` |
-| **RUN sem NO-ERROR** | 🟡 Warning | `RUN` de procedures sem `NO-ERROR` |
-| **CAN-FIND com EXCLUSIVE-LOCK** | 🔴 Error | `EXCLUSIVE-LOCK` inválido dentro de `CAN-FIND` |
-| **MESSAGE sem VIEW-AS** | 🔵 Info | `MESSAGE` sem `VIEW-AS ALERT-BOX` |
-| **Falta de Diretiva de Erro** | 🟡 Warning | Ausência de `BLOCK-LEVEL/ROUTINE-LEVEL ON ERROR UNDO, THROW` |
 
 ---
 
