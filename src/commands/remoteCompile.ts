@@ -518,9 +518,11 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 const repository = enableRepo
                     ? config.get<string>('compilationRepository', 'EMS2.08')
                     : undefined;
+                const machineName = os.hostname();
 
                 const response = await axios.post(compilerUrl, {
                     dbType: selectedDb,
+                    machineName,
                     patchInfo: patchInfo,
                     ...(repository ? { repository } : {}),
                     files: filesPayload
@@ -540,6 +542,7 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 outputChannel.clear();
                 outputChannel.appendLine('=== RESUMO DE ARQUIVOS ENVIADOS ===');
                 outputChannel.appendLine(`JobId: ${jobId}`);
+                outputChannel.appendLine(`Computador: ${machineName}`);
                 outputChannel.appendLine(`Banco: ${selectedDb}${patchInfo ? ` | Patch: ${patchInfo.patchVersion}` : ''}`);
                 outputChannel.appendLine(`Total: ${filesPayload.length} arquivo(s)\n`);
                 for (const file of filesPayload) {

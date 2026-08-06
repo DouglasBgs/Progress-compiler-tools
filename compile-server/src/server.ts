@@ -30,6 +30,7 @@ interface CompileJob {
     jobId: string;
     files: FilePayload[];
     dbType: string;
+    machineName?: string;
     dbSettings: any;
     status: 'queued' | 'processing' | 'completed' | 'error';
     result?: any;
@@ -97,7 +98,7 @@ async function processQueue() {
     const waitTimeMs = Date.now() - job.createdAt;
     
     notifyClient(job.jobId, { status: 'processing', jobId: job.jobId });
-    logger.info('Queue', `Iniciando processamento do job`, { jobId: job.jobId, activeJobs, pendingJobs: jobQueue.length, waitTimeMs, filesCount: job.files.length, dbType: job.dbType });
+    logger.info('Queue', `Iniciando processamento do job`, { jobId: job.jobId, machineName: job.machineName, activeJobs, pendingJobs: jobQueue.length, waitTimeMs, filesCount: job.files.length, dbType: job.dbType });
 
     const startTime = Date.now();
 
@@ -342,6 +343,10 @@ app.post('/compile', async (req: Request, res: Response) => {
     try {
         const files: FilePayload[] = req.body.files;
         const dbType: string = req.body.dbType;
+        const machineNameRaw = req.body.machineName ?? undefined;
+        const machineName: string = typeof machineNameRaw === 'string' && machineNameRaw.trim() !== ''
+            ? machineNameRaw.trim()
+            : 'unknown';
         const patchInfo = req.body.patchInfo; // { patchVersion: string, subType: string }
 
         if (!files || !Array.isArray(files)) {
@@ -360,7 +365,7 @@ app.post('/compile', async (req: Request, res: Response) => {
         // Resolve o repositório: prioriza o valor enviado pelo cliente, depois o padrão do config, e por último EMS2.08
         const repository: string = req.body.repository || serverConfig.defaultRepository || 'EMS2.08';
 
-        logger.info('API', `POST /compile recebido`, { filesCount: files?.length, dbType, repository, hasPatchInfo: !!patchInfo, ip: req.ip });
+        logger.info('API', `POST /compile recebido`, { filesCount: files?.length, dbType, repository, hasPatchInfo: !!patchInfo, machineName, ip: req.ip });
 
         let dbSettings: any = null;
 
@@ -416,13 +421,14 @@ app.post('/compile', async (req: Request, res: Response) => {
             jobId,
             files,
             dbType,
+            machineName,
             dbSettings,
             status: 'queued',
             createdAt: Date.now()
         });
 
         const fileNames = files.map(f => f.relativePath);
-        logger.info('API', `Job criado e enfileirado`, { jobId, filesCount: files.length, files: fileNames, dbType, queueSize: jobQueue.length, activeJobs });
+        logger.info('API', `Job criado e enfileirado`, { jobId, machineName, filesCount: files.length, files: fileNames, dbType, queueSize: jobQueue.length, activeJobs });
         logger.timed('API', `Resposta 202 enviada ao cliente`, requestStart, { jobId });
         
         // Retorna status 202 (Accepted) para o cliente fechar a requisição rápida e abrir o websocket
