@@ -10,12 +10,17 @@ import { exec } from 'child_process';
 import * as http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { logger } from './logger';
+import { AppDataSource } from './db/data-source';
+import { createJobMetric, updateJobMetric } from './db/jobMetric.repository';
+import { registerDashboardRoutes } from './dashboard/dashboard.routes';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
+registerDashboardRoutes(app);
+app.use('/dashboard', express.static(path.join(__dirname, 'dashboard', 'public')));
 
 // Configuração do Servidor HTTP + WebSocket
 const server = http.createServer(app);
@@ -109,11 +114,24 @@ async function processQueue() {
 
         const compiledCount = job.result?.compiledFiles?.length ?? 0;
         const errorCount = job.result?.errors?.length ?? 0;
+        updateJobMetric(job.jobId, {
+            status: 'completed',
+            compiledCount,
+            errorsCount: errorCount,
+            durationMs: Date.now() - startTime,
+            finishedAt: new Date(),
+        });
         logger.timed('Queue', `Job finalizado com sucesso`, startTime, { jobId: job.jobId, compiledFiles: compiledCount, errors: errorCount });
     } catch (err: any) {
         job.status = 'error';
         job.errorMsg = err.message || 'Erro desconhecido';
         notifyClient(job.jobId, { status: 'error', jobId: job.jobId, errorMsg: job.errorMsg });
+        updateJobMetric(job.jobId, {
+            status: 'error',
+            errorMsg: job.errorMsg,
+            durationMs: Date.now() - startTime,
+            finishedAt: new Date(),
+        });
         logger.error('Queue', `Job falhou`, { jobId: job.jobId, error: job.errorMsg, durationMs: Date.now() - startTime });
     } finally {
         activeJobs--;
@@ -427,6 +445,18 @@ app.post('/compile', async (req: Request, res: Response) => {
             createdAt: Date.now()
         });
 
+        const ablSourcesCount = files.filter(f => /\.(p|py|w|cls)$/i.test(f.relativePath)).length;
+        createJobMetric({
+            jobId,
+            status: 'queued',
+            machineName,
+            ip: req.ip ?? null,
+            filesCount: files.length,
+            ablSourcesCount,
+            dbType,
+            repository,
+        });
+
         const fileNames = files.map(f => f.relativePath);
         logger.info('API', `Job criado e enfileirado`, { jobId, machineName, filesCount: files.length, files: fileNames, dbType, queueSize: jobQueue.length, activeJobs });
         logger.timed('API', `Resposta 202 enviada ao cliente`, requestStart, { jobId });
@@ -474,15 +504,33 @@ app.get('/result/:jobId', (req: Request, res: Response) => {
     logger.info('API', `Resultado entregue e removido da memória`, { jobId, compiledFiles: compiledCount, errors: errorCount });
 });
 
-server.listen(PORT, () => {
-    logger.info('Server', `═══════════════════════════════════════════════════`);
-    logger.info('Server', `ABL Compile Server iniciado com sucesso`);
-    logger.info('Server', `Porta: ${PORT} | Max Jobs: ${MAX_CONCURRENT_JOBS}`);
-    logger.info('Server', `PID: ${process.pid} | Node: ${process.version} | Plataforma: ${process.platform}`);
-    logger.info('Server', `DLC: ${process.env.DLC || '(não definido)'}`);
-    logger.info('Server', `LOG_LEVEL: ${process.env.LOG_LEVEL || 'info (padrão)'}`);
-    logger.info('Server', `═══════════════════════════════════════════════════`);
-});
+AppDataSource.initialize()
+    .then(() => {
+        logger.info('Database', 'Conexão com SQLite estabelecida (TypeORM)');
+        server.listen(PORT, () => {
+            logger.info('Server', `═══════════════════════════════════════════════════`);
+            logger.info('Server', `ABL Compile Server iniciado com sucesso`);
+            logger.info('Server', `Porta: ${PORT} | Max Jobs: ${MAX_CONCURRENT_JOBS}`);
+            logger.info('Server', `PID: ${process.pid} | Node: ${process.version} | Plataforma: ${process.platform}`);
+            logger.info('Server', `DLC: ${process.env.DLC || '(não definido)'}`);
+            logger.info('Server', `LOG_LEVEL: ${process.env.LOG_LEVEL || 'info (padrão)'}`);
+            logger.info('Server', `═══════════════════════════════════════════════════`);
+            logger.info('Server', 'Rotas habilitadas:', {
+                routes: [
+                    'POST   /compile',
+                    'GET    /result/:jobId',
+                    'POST   /api/auth/login',
+                    'GET    /api/dashboard/metrics',
+                    'GET    /api/dashboard/jobs',
+                    'GET    /dashboard/* (estático)',
+                ],
+            });
+        });
+    })
+    .catch((err) => {
+        logger.error('Database', 'Falha ao inicializar banco de dados SQLite', { error: err.message });
+        process.exit(1);
+    });
 
 // Graceful shutdown
 process.on('SIGINT', () => {

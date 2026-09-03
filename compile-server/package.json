@@ -4,29 +4,46 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/dashboard/public && cp -r src/dashboard/public/* dist/dashboard/public/",
     "start": "node dist/server.js",
     "dev": "ts-node src/server.ts",
-    "watch": "tsc -watch -p ."
+    "watch": "tsc -watch -p .",
+    "db:migrate": "ts-node --transpile-only src/db/migrate.ts",
+    "db:migrate:prod": "node dist/db/migrate.js",
+    "hash-password": "ts-node --transpile-only src/auth/hash-password.ts",
+    "hash-password:prod": "node dist/auth/hash-password.js",
+    "logs:import": "ts-node --transpile-only src/db/import-log.ts",
+    "logs:import:prod": "node dist/db/import-log.js",
+    "test:logs": "node --test -r ts-node/register/transpile-only test/job-log.parser.test.cjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.11.1",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "jsonwebtoken": "^9.0.3",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^1.1.1",
     "uuid": "^13.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.5.2",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.10",
+    "ts-node": "^10.9.2",
     "typescript": "^6.0.2"
   }
 }

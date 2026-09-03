@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Login - Dashboard de Compilação</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<div class="login-box">
+  <h1>Dashboard de Compilação</h1>
+  <form id="loginForm">
+    <label>Usuário</label>
+    <input type="text" id="username" required autocomplete="username">
+    <label>Senha</label>
+    <input type="password" id="password" required autocomplete="current-password">
+    <button type="submit">Entrar</button>
+    <p id="errorMsg" class="error"></p>
+  </form>
+</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const errorEl = document.getElementById('errorMsg');
+  errorEl.textContent = '';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.message || 'Falha no login.';
+      return;
+    }
+    sessionStorage.setItem('dashboard_token', data.token);
+    window.location.href = 'dashboard.html';
+  } catch (err) {
+    errorEl.textContent = 'Erro ao conectar ao servidor.';
+  }
+});
+</script>
+</body>
+</html>

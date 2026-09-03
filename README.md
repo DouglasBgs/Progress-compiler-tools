@@ -36,6 +36,15 @@ Extensão para Visual Studio Code que oferece compilação remota de arquivos **
 - Exibição detalhada de erros de compilação no canal **ABL Compiler** (Output)
 - Exclusão automática de `.r` inválidos em caso de falha de compilação
 
+### 📊 Dashboard de Rastreamento de Compilação
+- Fila com até **3 compilações concorrentes** e notificação de status por WebSocket
+- Persistência de métricas de jobs em **SQLite**, gerenciada por **TypeORM**
+- Histórico de job, hostname, IP, banco/repositório, quantidade de arquivos e fontes ABL, resultado, erros e duração
+- Dashboard protegido por login com senha em hash **bcrypt**, token **JWT** (expiração de 1 hora) e limitação de tentativas de login
+- Indicadores de total de jobs e arquivos, máquinas distintas, média de arquivos por job e duração média
+- Gráficos de jobs por status, máquina e banco de dados, além da lista dos jobs recentes
+- Importação idempotente de histórico a partir do `output.log`, sem duplicar jobs já armazenados
+
 ### 📦 Destinos Flexíveis e Inteligentes para os `.r`
 Ao iniciar a compilação, você escolhe primeiro onde salvar os binários. Caso o servidor escolhido possua um **banco de dados de preferência pré-configurado**, a compilação é iniciada automaticamente poupando cliques:
 
@@ -151,7 +160,16 @@ PORT=8080
 DLC=C:\dlc128
 # Linux:
 # DLC=/usr/dlc
+
+# Credenciais do dashboard
+# Gere JWT_SECRET com: openssl rand -hex 32
+JWT_SECRET=troque-por-um-segredo-aleatorio-forte
+DASHBOARD_USER=admin
+# Gere o hash com: npm run hash-password -- <senha>
+DASHBOARD_PASSWORD_HASH=
 ```
+
+> **Segurança:** nunca versione o arquivo `.env`. Em produção, publique o dashboard somente sob HTTPS por meio de um reverse proxy e utilize um `JWT_SECRET` aleatório e exclusivo por ambiente.
 
 ### Arquivo `server.config.json`
 
@@ -208,9 +226,55 @@ A lógica de busca de arquivos segue o padrão:
 | Script | Descrição |
 |--------|-----------|
 | `npm run dev` | Execução em desenvolvimento (ts-node, sem build) |
-| `npm run build` | Compila TypeScript para `dist/` |
+| `npm run build` | Compila TypeScript para `dist/` e copia os arquivos estáticos do dashboard |
 | `npm start` | Inicia a partir do build compilado (`dist/server.js`) |
 | `npm run watch` | Assiste e recompila TypeScript automaticamente |
+| `npm run db:migrate` | Cria/atualiza o banco SQLite e as tabelas em desenvolvimento |
+| `npm run db:migrate:prod` | Cria/atualiza o banco SQLite a partir do build de produção |
+| `npm run hash-password -- <senha>` | Gera o hash bcrypt para `DASHBOARD_PASSWORD_HASH` |
+| `npm run hash-password:prod -- <senha>` | Gera o hash bcrypt usando o build de produção |
+| `npm run logs:import -- <arquivo>` | Importa o histórico de jobs de um `output.log` em desenvolvimento |
+| `npm run logs:import:prod -- <arquivo>` | Importa o histórico de jobs a partir do build de produção |
+| `npm run test:logs` | Executa os testes do parser de logs |
+
+### Dashboard, métricas e histórico
+
+O servidor registra uma métrica para cada job recebido e a atualiza quando a compilação é concluída ou falha. Os dados são gravados em `compile-server/data/dashboard.sqlite`; esse arquivo deve receber backup conforme a política operacional do ambiente.
+
+Depois de instalar as dependências e configurar o `.env`, inicialize a base e, se houver histórico anterior, importe o arquivo de log antes de iniciar o servidor:
+
+```bash
+# Desenvolvimento
+npm run db:migrate
+npm run logs:import -- output.log
+npm run dev
+
+# Produção, após npm ci --omit=dev e npm run build
+npm run db:migrate:prod
+npm run logs:import:prod -- C:\compile-server-progress\output.log
+npm start
+```
+
+A importação usa o `jobId` como chave lógica: reexecutar o mesmo comando atualiza os registros existentes e não cria duplicidades. O parser recupera hostname, IP, tipo de banco, repositório, quantidades de arquivos/fontes, resultado, erros e duração quando esses eventos estão presentes no log.
+
+O dashboard fica disponível em:
+
+```text
+http://ip-do-servidor:8080/dashboard/login.html
+```
+
+As rotas abaixo são registradas no boot e exibidas no log do servidor:
+
+| Método | Rota | Acesso |
+|--------|------|--------|
+| `POST` | `/compile` | Extensão VSCode |
+| `GET` | `/result/:jobId` | Extensão VSCode |
+| `POST` | `/api/auth/login` | Público, limitado a 5 tentativas por 15 minutos/IP |
+| `GET` | `/api/dashboard/metrics` | JWT obrigatório |
+| `GET` | `/api/dashboard/jobs` | JWT obrigatório |
+| `GET` | `/dashboard/*` | Arquivos estáticos do dashboard |
+
+> **LGPD:** o dashboard armazena IP e hostname para monitoramento operacional e segurança do serviço. São persistidos apenas metadados e contadores, nunca os nomes ou conteúdos dos arquivos enviados. Restrinja o acesso ao dashboard às pessoas que precisam desses dados e defina a rotina interna de backup, retenção e descarte do banco SQLite.
 
 ---
 

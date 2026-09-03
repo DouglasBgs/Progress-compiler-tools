@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard de Compilação</title>
+<link rel="stylesheet" href="dashboard.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Dashboard de Compilação</h1>
+  <button id="logoutBtn">Sair</button>
+</header>
+<main>
+  <section class="cards">
+    <div class="card"><span id="totalJobs">-</span><label>Total de Jobs</label></div>
+    <div class="card"><span id="totalFiles">-</span><label>Arquivos Enviados</label></div>
+    <div class="card"><span id="distinctMachines">-</span><label>Máquinas Diferentes</label></div>
+    <div class="card"><span id="avgFilesPerJob">-</span><label>Média de Arquivos/Job</label></div>
+    <div class="card"><span id="avgDuration">-</span><label>Duração Média (ms)</label></div>
+  </section>
+  <section class="charts">
+    <div class="chart-box"><h2>Jobs por Status</h2><canvas id="statusChart"></canvas></div>
+    <div class="chart-box"><h2>Jobs por Máquina</h2><canvas id="machineChart"></canvas></div>
+    <div class="chart-box"><h2>Bancos mais Utilizados</h2><canvas id="databasesChart"></canvas></div>
+  </section>
+  <section>
+    <h2>Jobs por Status</h2>
+    <table id="statusTable"><thead><tr><th>Status</th><th>Quantidade</th></tr></thead><tbody></tbody></table>
+  </section>
+  <section>
+    <h2>Jobs por Máquina</h2>
+    <table id="machineTable"><thead><tr><th>Máquina</th><th>Quantidade</th></tr></thead><tbody></tbody></table>
+  </section>
+  <section>
+    <h2>Jobs Recentes</h2>
+    <table id="jobsTable"><thead><tr><th>Job ID</th><th>Status</th><th>Máquina</th><th>IP</th><th>Arquivos</th><th>DB</th><th>Criado em</th></tr></thead><tbody></tbody></table>
+  </section>
+</main>
+<script src="dashboard.js"></script>
+</body>
+</html>

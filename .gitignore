@@ -4,3 +4,6 @@ dist
 out
 *.vsix
 *.txt
+logs
+compile-server/.env
+compile-server/data/*.sqlite
