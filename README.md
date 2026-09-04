@@ -36,6 +36,15 @@ Extensão para Visual Studio Code que oferece compilação remota de arquivos **
 - Exibição detalhada de erros de compilação no canal **ABL Compiler** (Output)
 - Exclusão automática de `.r` inválidos em caso de falha de compilação
 
+### 📋 Análise Estática de Logs OpenEdge
+- Análise local de arquivos `.lst`, `.log`, `.lg` e `.txt`, sem envio do conteúdo para serviços externos
+- Suporte automático a logs AVM/4GL de cliente (`[DD/MM/YY@...] P-... T-...`) e AppServer Agent (`ISO-8601 PID THREAD AS-...`)
+- Detecção do formato e normalização para timestamp, processo, thread, categoria e mensagem
+- Leitura de arquivos UTF-8 e ISO-8859-1, comum em logs OpenEdge legados
+- Identificação de erros técnicos, warnings de negócio (`RowErrors`, `tt_log_erros`), procedures lentas e chamadas frequentes
+- Visão de conexões de bancos, arquivos abertos via `FILEID` e carga por processo/thread
+- Parâmetros entre aspas presentes nos traces são omitidos no relatório
+
 ### 📊 Dashboard de Rastreamento de Compilação
 - Fila com até **3 compilações concorrentes** e notificação de status por WebSocket
 - Persistência de métricas de jobs em **SQLite**, gerenciada por **TypeORM**
@@ -602,6 +611,7 @@ Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.progress-compiler-tool
 | `OpenEdge ABL: Excluir Servidor de Destino` | `abl-linter.removeServer` | Abre diretamente o fluxo de remoção de servidor |
 | `OpenEdge ABL: Abrir Configurações da Extensão` | `abl-linter.openSettings` | Abre as configurações da extensão filtradas por `abl-linter` |
 | `OpenEdge ABL: Selecionar Arquivos e Compilar` | `abl-linter.selectFilesAndCompile` | Permite escolher arquivos no diálogo e enviar para compilação |
+| `OpenEdge ABL: Analisar Log` | `abl-linter.analyzeLog` | Gera análise estática local de erros, performance, bancos, arquivos e processos de um log OpenEdge |
 
 ---
 

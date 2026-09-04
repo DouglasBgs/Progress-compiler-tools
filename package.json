@@ -99,7 +99,7 @@
       },
       {
         "command": "abl-linter.analyzeLog",
-        "title": "Analisar Log com IA",
+        "title": "Analisar Log",
         "category": "OpenEdge ABL",
         "icon": "$(graph)"
       },
@@ -226,21 +226,6 @@
             "HUB"
           ],
           "markdownDescription": "Repositório preferido de compilação do Progress OpenEdge.\n\nEste valor será utilizado para resolver os caminhos de `.pf` e `.ini` no servidor de compilação.\n\n⚠️ Esta configuração só tem efeito quando `#abl-linter.enableCompilationRepository#` estiver habilitado."
-        },
-        "abl-linter.aiApiKey": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Chave de API para análise inteligente de logs (OpenAI, Azure OpenAI ou compatível).\n\n🔑 Obtenha sua chave em [platform.openai.com](https://platform.openai.com/api-keys)"
-        },
-        "abl-linter.aiApiUrl": {
-          "type": "string",
-          "default": "https://api.openai.com/v1/chat/completions",
-          "markdownDescription": "URL da API de IA para análise de logs.\n\nSuporta qualquer endpoint compatível com a API OpenAI (Azure, Ollama local, etc)."
-        },
-        "abl-linter.aiModel": {
-          "type": "string",
-          "default": "gpt-4o-mini",
-          "markdownDescription": "Modelo de IA a ser utilizado na análise de logs.\n\nExemplos: `gpt-4o-mini`, `gpt-4o`, `gpt-3.5-turbo`"
         }
       }
     },
@@ -265,7 +250,7 @@
     "typescript": "^5.3.0"
   },
   "dependencies": {
-    "axios": "^1.15.0",
+    "axios": "^1.20.0",
     "ws": "^8.18.0"
   }
 }

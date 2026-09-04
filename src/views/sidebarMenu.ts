@@ -51,7 +51,7 @@ class SidebarMenuProvider implements vscode.TreeDataProvider<SidebarMenuItem> {
             createItem('Selecionar Repositório', 'abl-linter.selectRepository', 'Alterar repositório de compilação', 'repo'),
         ]),
         createSection('Facilitadores', 'lightbulb', [
-            createItem('Analisar Log com IA', 'abl-linter.analyzeLog', 'Análise inteligente de logs Progress (erros, performance, procedures lentas)', 'graph'),
+            createItem('Analisar Log', 'abl-linter.analyzeLog', 'Análise estática de logs Progress: erros, performance, conexões e arquivos', 'graph'),
             
         ]),
     ];
