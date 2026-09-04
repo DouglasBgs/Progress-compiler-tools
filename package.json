@@ -47,6 +47,7 @@
       "onCommand:abl-linter.removeServer",
       "onCommand:abl-linter.openSettings",
       "onCommand:abl-linter.selectFilesAndCompile",
+      "onCommand:abl-linter.selectFoldersAndCompile",
       "onCommand:abl-linter.selectRepository",
       "onCommand:abl-linter.reloadWindow",
       "onCommand:abl-linter.openTerminal",
@@ -90,6 +91,12 @@
         "title": "Selecionar Arquivos e Compilar",
         "category": "OpenEdge ABL",
         "icon": "$(files)"
+      },
+      {
+        "command": "abl-linter.selectFoldersAndCompile",
+        "title": "Selecionar Pastas e Compilar",
+        "category": "OpenEdge ABL",
+        "icon": "$(folder-active)"
       },
       {
         "command": "abl-linter.selectRepository",
@@ -138,7 +145,7 @@
         {
           "command": "abl-linter.compileRemote",
           "group": "2_workspace",
-          "when": "resourceExtname == .p || resourceExtname == .py || resourceExtname == .w || resourceExtname == .cls || resourceExtname =~ /^\\.i\\d*$/"
+          "when": "explorerResourceIsFolder || resourceExtname == .p || resourceExtname == .py || resourceExtname == .w || resourceExtname == .cls || resourceExtname =~ /^\\.i\\d*$/"
         }
       ],
       "scm/resourceState/context": [
@@ -225,7 +232,12 @@
             "HCM2",
             "HUB"
           ],
-          "markdownDescription": "Repositório preferido de compilação do Progress OpenEdge.\n\nEste valor será utilizado para resolver os caminhos de `.pf` e `.ini` no servidor de compilação.\n\n⚠️ Esta configuração só tem efeito quando `#abl-linter.enableCompilationRepository#` estiver habilitado."
+          "markdownDescription": "Repositório preferido de compilação do Progress OpenEdge.\n\nEste valor será utilizado para resolver os caminhos de `.pf` e `.ini` no servidor de compilação.\n\n⚠️ Esta configuração só tem efeito quando `#abl-linter.enableCompilationRepository#` estiver habilitado ou como fallback quando nenhuma pasta específica for identificada."
+        },
+        "abl-linter.autoDetectRepository": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Identifica automaticamente o repositório/compilador (EMS2, EMS5, FONDATION, CRM, HCM, GP, etc.) com base na pasta raiz que precede `progress/src/` ou `src/`."
         }
       }
     },

@@ -310,22 +310,31 @@ Ou configure manualmente via `Arquivo → Preferências → Configurações`:
 | Configuração | Tipo | Padrão | Descrição |
 |---|---|---|---|
 | `abl-linter.compilerUrl` | `string` | `""` | URL do servidor de compilação ABL |
-| `abl-linter.enableCompilationRepository` | `boolean` | `false` | Habilita a seleção do repositório de compilação |
-| `abl-linter.compilationRepository` | `string` | `"EMS2.08"` | Repositório preferido (ex: EMS2, CRM, etc.) |
+| `abl-linter.autoDetectRepository` | `boolean` | `true` | Identifica automaticamente o repositório/compilador (EMS2, EMS5, FONDATION, CRM, HCM, etc.) com base na pasta raiz que precede `progress/src/` |
+| `abl-linter.enableCompilationRepository` | `boolean` | `false` | Habilita a seleção manual do repositório de compilação |
+| `abl-linter.compilationRepository` | `string` | `"EMS2.08"` | Repositório padrão / fallback |
 | `abl-linter.includeGitChangedIncludes` | `boolean` | `false` | Inclui automaticamente includes (`.i`) modificadas no Git quando encontradas nas referências dos fontes compilados |
 
-### Repositório de Compilação
+### Identificação Automática de Pastas e Multipastas
 
-Para utilizar diferentes repositórios de compilação (como CRM, EMS5, etc.), você deve habilitar a configuração `enableCompilationRepository`. Quando habilitada, a extensão enviará o valor de `compilationRepository` para o servidor.
+A extensão identifica automaticamente o ambiente/compilador com base no nome da pasta raiz que precede `progress/src/` (ou `src/`):
 
-| Repositório | Descrição |
-|---|---|
-| **EMS2** | EMS 2.08 (Padrão) |
-| **CRM** | CRM |
-| **EMS5** | EMS 5.08 |
-| ... | ... |
+- `EMS2/progress/src/...` $\rightarrow$ **EMS 2.08** (`EMS2.08`)
+- `EMS5/progress/src/...` $\rightarrow$ **EMS 5.08** (`EMS5.08`)
+- `FONDATION/progress/src/...` $\rightarrow$ **FND 1.02** (`FND1.02`)
+- `CRM/progress/src/...` $\rightarrow$ **CRM**
+- `HCM/progress/src/...` $\rightarrow$ **HCM 2.11A** (`HCM2.11A`)
+- `GP/progress/src/...` $\rightarrow$ **GP 3.50** (`GP3.50`)
+- `EAI/progress/src/...` $\rightarrow$ **EAI 1.00** (`EAI1.00`)
+- `HUB/progress/src/...` $\rightarrow$ **HUB**
 
-> ⚠️ **Retrocompatibilidade:** Se `enableCompilationRepository` estiver desabilitado, a extensão não enviará o repositório, e o servidor usará o valor padrão definido em `defaultRepository` (ou `EMS2.08`).
+#### Suporte a Multipastas e Priorização de Compilação
+Caso você selecione arquivos ou pastas pertencentes a produtos distintos ao mesmo tempo (ex: `FONDATION` e `EMS2`):
+1. A extensão identifica todos os arquivos e extrai os caminhos relativos limpos após `progress/src/`, enviando todos conjuntamente no mesmo lote de compilação.
+2. Um diálogo de seleção (**QuickPick**) é apresentado para você definir qual compilador/ambiente priorizar para a compilação (ex: priorizar `FONDATION` ou `EMS2`).
+3. Ao finalizar, cada arquivo `.r` compilado é gravado diretamente no diretório original do respectivo fonte local (`FONDATION/...` ou `EMS2/...`).
+
+A barra de status inferior exibe em tempo real o repositório/pasta ativa detectada no editor (`$(repo) ABL: EMS2`, `$(repo) ABL: FONDATION`).
 
 
 ---

@@ -9,12 +9,14 @@ import { initServersConfig } from './config/serversConfig';
 import {
     registerOpenSettingsCommand,
     registerSelectFilesAndCompileCommand,
+    registerSelectFoldersAndCompileCommand,
     registerSidebarMenu,
     registerFacilitatorCommands
 } from './views/sidebarMenu';
 import { registerLogAnalyzerCommand } from './commands/logAnalyzer';
 import { registerAblIncludeProviders } from './providers/ablIncludeProvider';
 import { registerAblProcedureProviders } from './providers/ablProcedureProvider';
+import { registerStatusBar } from './views/statusBar';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('OpenEdge ABL Progress Compiler Tools is now active!');
@@ -24,6 +26,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Verifica se o URL do servidor de compilação está configurado (Assistente Inicial)
     getOrPromptCompilerUrl();
+
+    // Registra a barra de status com indicação do repositório/pasta ativa
+    registerStatusBar(context);
 
     // Registra o comando de compilação remota do VSCode Explorer context menu
     registerRemoteCompileCommand(context);
@@ -36,6 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Registra menu lateral da extensão
     registerOpenSettingsCommand(context);
     registerSelectFilesAndCompileCommand(context);
+    registerSelectFoldersAndCompileCommand(context);
     registerFacilitatorCommands(context);
     registerLogAnalyzerCommand(context);
     registerSidebarMenu(context);

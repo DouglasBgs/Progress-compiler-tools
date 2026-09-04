@@ -13,6 +13,11 @@ import {
     pickFolderDialog,
     ensureTrustedUncHost
 } from './manageServers';
+import {
+    extractRelativeAndRoot,
+    resolveCompilationRepositoryForUris,
+    getRepositoryDisplayName
+} from '../config/repositoryDetector';
 
 /**
  * Interface payload de arquivo
@@ -29,6 +34,54 @@ const outputChannel = vscode.window.createOutputChannel('ABL Compiler');
  * Aceita qualquer arquivo com extensão para envio ao servidor (a filtragem de compilação ocorre no servidor)
  */
 export const ABL_COMPILE_REGEX = /\.[a-zA-Z0-9_\-]+$/i;
+
+/**
+ * Se algum item for um diretório, busca recursivamente todos os arquivos ABL (.p, .w, .cls, .py, .i...)
+ */
+async function expandFoldersToUris(rawUris: vscode.Uri[]): Promise<vscode.Uri[]> {
+    const result: vscode.Uri[] = [];
+    const seen = new Set<string>();
+
+    const traverse = async (uri: vscode.Uri) => {
+        try {
+            const stat = await vscode.workspace.fs.stat(uri);
+            if (stat.type === vscode.FileType.Directory) {
+                const entries = await vscode.workspace.fs.readDirectory(uri);
+                for (const [name, type] of entries) {
+                    // Ignora diretórios comuns de build/dependências
+                    if (['node_modules', '.git', '.vscode', '.superpowers', 'out', 'dist', 'bin'].includes(name.toLowerCase())) {
+                        continue;
+                    }
+                    const childUri = vscode.Uri.joinPath(uri, name);
+                    if (type === vscode.FileType.Directory) {
+                        await traverse(childUri);
+                    } else if (type === vscode.FileType.File) {
+                        if (ABL_COMPILE_REGEX.test(name) && !seen.has(childUri.fsPath)) {
+                            seen.add(childUri.fsPath);
+                            result.push(childUri);
+                        }
+                    }
+                }
+            } else if (stat.type === vscode.FileType.File) {
+                if (ABL_COMPILE_REGEX.test(uri.fsPath) && !seen.has(uri.fsPath)) {
+                    seen.add(uri.fsPath);
+                    result.push(uri);
+                }
+            }
+        } catch (_) {
+            if (ABL_COMPILE_REGEX.test(uri.fsPath) && !seen.has(uri.fsPath)) {
+                seen.add(uri.fsPath);
+                result.push(uri);
+            }
+        }
+    };
+
+    for (const u of rawUris) {
+        await traverse(u);
+    }
+
+    return result;
+}
 
 /**
  * Extrai caminhos de includes ABL do conteúdo de um arquivo.
@@ -217,11 +270,14 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
             }
         }
 
+        // Se houver pastas ou arquivos na seleção, expande pastas recursivamente para fontes ABL
+        urisToCompile = await expandFoldersToUris(urisToCompile);
+
         // Filtra apenas arquivos com alguma extensão (incluindo qualquer include ou suporte)
         urisToCompile = urisToCompile.filter(u => ABL_COMPILE_REGEX.test(u.fsPath));
 
         if (urisToCompile.length === 0) {
-            vscode.window.showWarningMessage('Nenhum arquivo selecionado ou aberto no editor.');
+            vscode.window.showWarningMessage('Nenhum arquivo ABL (.p, .w, .cls, .py, .i) selecionado ou aberto no editor.');
             return;
         }
 
@@ -229,9 +285,10 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         const compilerUrl = await getOrPromptCompilerUrl();
         if (!compilerUrl) { return; }
 
-        // Raiz do workspace
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
+        // Raiz do workspace principal
+        const workspaceFolders = vscode.workspace.workspaceFolders || [];
+        const workspaceFolder = workspaceFolders[0];
+        if (!workspaceFolder && urisToCompile.length === 0) {
             vscode.window.showErrorMessage('Você deve estar em um Workspace para usar a compilação remota.');
             return;
         }
@@ -456,11 +513,27 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         // ── Includes modificados no Git ───────────────────────────────────────
         const cfg = vscode.workspace.getConfiguration('abl-linter');
         if (cfg.get<boolean>('includeGitChangedIncludes', false)) {
-            const gitModified = getGitModifiedFiles(workspaceFolder.uri.fsPath);
+            const gitRoots = new Set<string>();
+            for (const u of urisToCompile) {
+                const wf = vscode.workspace.getWorkspaceFolder(u);
+                if (wf) { gitRoots.add(wf.uri.fsPath); }
+            }
+            if (gitRoots.size === 0 && workspaceFolder) {
+                gitRoots.add(workspaceFolder.uri.fsPath);
+            }
+
+            const gitModified = new Set<string>();
+            for (const root of gitRoots) {
+                for (const mod of getGitModifiedFiles(root)) {
+                    gitModified.add(mod);
+                }
+            }
+
             if (gitModified.size > 0) {
+                const primaryRoot = workspaceFolder ? workspaceFolder.uri.fsPath : (Array.from(gitRoots)[0] || '');
                 const modifiedIncludes = await collectModifiedIncludes(
                     urisToCompile,
-                    workspaceFolder.uri.fsPath,
+                    primaryRoot,
                     gitModified,
                     addedPaths
                 );
@@ -474,8 +547,17 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         }
         // ─────────────────────────────────────────────────────────────────────
 
+        // ── 2.5. Resolver repositório/compilador prioritário ─────────────────
+        const repository = await resolveCompilationRepositoryForUris(urisToCompile);
+        if (repository === undefined) {
+            vscode.window.showInformationMessage('Compilação cancelada: seleção de repositório cancelada.');
+            return;
+        }
+
         const filesPayload: FilePayload[] = [];
         const pathMapping = new Map<string, string>();
+        const localRFileMapping = new Map<string, string>();
+        const detectedRootFolders = new Set<string>();
         
             await vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
@@ -486,17 +568,14 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                     progress.report({ message: `Lendo ${urisToCompile.length} arquivo(s)...` });
 
                 for (const fileUri of urisToCompile) {
-                    const relativePath = path.relative(workspaceFolder.uri.fsPath, fileUri.fsPath);
-                    const normalized   = relativePath.replace(/\\/g, '/');
-
-                    // Remove prefixo 'src/' do caminho relativo
-                    let targetRelative = normalized;
-                    const srcIndex = normalized.indexOf('/src/');
-                    if (srcIndex !== -1) {
-                        targetRelative = normalized.substring(srcIndex + 5);
-                    } else if (normalized.startsWith('src/')) {
-                        targetRelative = normalized.substring(4);
+                    const rootInfo = extractRelativeAndRoot(fileUri.fsPath);
+                    let targetRelative = rootInfo.targetRelative;
+                    if (rootInfo.rootFolder) {
+                        detectedRootFolders.add(rootInfo.rootFolder);
                     }
+
+                    // Garante que o caminho relativo não tenha barras no início
+                    targetRelative = targetRelative.replace(/\\/g, '/').replace(/^\/+/, '');
 
                     const fileData      = await vscode.workspace.fs.readFile(fileUri);
                     const contentBase64 = Buffer.from(fileData).toString('base64');
@@ -504,27 +583,29 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
 
                     const parsedTarget   = path.parse(targetRelative);
                     const rTarget        = path.posix.join(parsedTarget.dir, parsedTarget.name + '.r');
+
+                    // Mapeamento local para salvar o .r no mesmo diretório do arquivo fonte original
+                    const parsedSource   = path.parse(fileUri.fsPath);
+                    const localRPath     = path.join(parsedSource.dir, parsedSource.name + '.r');
+                    localRFileMapping.set(rTarget, localRPath);
+
+                    const wsFolder       = vscode.workspace.getWorkspaceFolder(fileUri) || workspaceFolder;
+                    const normalized     = wsFolder ? path.relative(wsFolder.uri.fsPath, fileUri.fsPath).replace(/\\/g, '/') : targetRelative;
                     const parsedOriginal = path.parse(normalized);
                     const rOriginal      = path.posix.join(parsedOriginal.dir, parsedOriginal.name + '.r');
                     pathMapping.set(rTarget, rOriginal);
                 }
 
                 // ── 2. Enviar ao servidor de compilação ────────────────────
-                progress.report({ message: `Enviando ${filesPayload.length} arquivo(s) para compilar no ${selectedDb}...` });
+                progress.report({ message: `Enviando ${filesPayload.length} arquivo(s) para compilar no ${selectedDb} (${repository})...` });
 
-                // Verifica se a seleção de repositório está habilitada
-                const config = vscode.workspace.getConfiguration('abl-linter');
-                const enableRepo = config.get<boolean>('enableCompilationRepository', false);
-                const repository = enableRepo
-                    ? config.get<string>('compilationRepository', 'EMS2.08')
-                    : undefined;
                 const machineName = os.hostname();
 
                 const response = await axios.post(compilerUrl, {
                     dbType: selectedDb,
                     machineName,
                     patchInfo: patchInfo,
-                    ...(repository ? { repository } : {}),
+                    repository,
                     files: filesPayload
                 }, {
                     headers: { 'Content-Type': 'application/json' },
@@ -544,6 +625,10 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 outputChannel.appendLine(`JobId: ${jobId}`);
                 outputChannel.appendLine(`Computador: ${machineName}`);
                 outputChannel.appendLine(`Banco: ${selectedDb}${patchInfo ? ` | Patch: ${patchInfo.patchVersion}` : ''}`);
+                outputChannel.appendLine(`Repositório/Compilador: ${repository} (${getRepositoryDisplayName(repository)})`);
+                if (detectedRootFolders.size > 0) {
+                    outputChannel.appendLine(`Pasta(s) Raiz Detectada(s): ${Array.from(detectedRootFolders).join(', ')}`);
+                }
                 outputChannel.appendLine(`Total: ${filesPayload.length} arquivo(s)\n`);
                 for (const file of filesPayload) {
                     outputChannel.appendLine(`  • ${file.relativePath}`);
@@ -608,9 +693,11 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                         if (!err.isWarning) {
                             hardErrorsCount++;
                             try {
-                                const parsed      = path.parse(originalRelativeFile);
-                                const rTargetPath = path.join(workspaceFolder.uri.fsPath, parsed.dir, parsed.name + '.r');
-                                await vscode.workspace.fs.delete(vscode.Uri.file(rTargetPath), { useTrash: false });
+                                const localRPath = localRFileMapping.get(err.file)
+                                    || (workspaceFolder ? path.join(workspaceFolder.uri.fsPath, path.parse(originalRelativeFile).dir, path.parse(originalRelativeFile).name + '.r') : undefined);
+                                if (localRPath) {
+                                    await vscode.workspace.fs.delete(vscode.Uri.file(localRPath), { useTrash: false });
+                                }
                             } catch (_) {}
                         }
 
@@ -649,11 +736,16 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                 progress.report({ message: `Gravando ${compiledFiles.length} arquivo(s) .r em: ${path.basename(targetBasePath)}...` });
 
                 for (const comp of compiledFiles) {
-                    const finalRelative = isLocal
-                        ? (pathMapping.get(comp.relativePath) || comp.relativePath)
-                        : comp.relativePath;
+                    let targetPath: string;
+                    if (isLocal) {
+                        targetPath = localRFileMapping.get(comp.relativePath)
+                            || (targetBasePath ? path.join(targetBasePath, pathMapping.get(comp.relativePath) || comp.relativePath) : '');
+                    } else {
+                        targetPath = path.join(targetBasePath, comp.relativePath);
+                    }
 
-                    const targetPath = path.join(targetBasePath, finalRelative);
+                    if (!targetPath) { continue; }
+
                     const targetDir  = path.dirname(targetPath);
 
                     await vscode.workspace.fs.createDirectory(vscode.Uri.file(targetDir));

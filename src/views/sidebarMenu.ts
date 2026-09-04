@@ -40,6 +40,7 @@ class SidebarMenuProvider implements vscode.TreeDataProvider<SidebarMenuItem> {
         createSection('Compilação', 'run-all', [
             createItem('Compilar Arquivo Atual', 'abl-linter.compileRemote', 'Compilar o arquivo ativo no editor', 'run-above'),
             createItem('Selecionar Arquivos e Compilar', 'abl-linter.selectFilesAndCompile', 'Selecionar arquivos para enviar para compilação remota', 'files'),
+            createItem('Selecionar Pastas e Compilar', 'abl-linter.selectFoldersAndCompile', 'Selecionar pastas inteiras para envio em lote (ex: EMS2, FONDATION)', 'folder-active'),
         ]),
         createSection('Servidores', 'server-environment', [
             createItem('Gerenciar Servidores', 'abl-linter.manageServers', 'Abrir menu completo de gerenciamento', 'server-environment'),
@@ -114,6 +115,27 @@ export function registerSelectFilesAndCompileCommand(context: vscode.ExtensionCo
     context.subscriptions.push(disposable);
 }
 
+export function registerSelectFoldersAndCompileCommand(context: vscode.ExtensionContext) {
+    const disposable = vscode.commands.registerCommand('abl-linter.selectFoldersAndCompile', async () => {
+        const selectedFolders = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: true,
+            openLabel: 'Enviar Pastas para Compilação',
+            title: 'Selecionar pastas para compilação remota (ex: EMS2, FONDATION)'
+        });
+
+        if (!selectedFolders || selectedFolders.length === 0) {
+            vscode.window.showWarningMessage('Nenhuma pasta foi selecionada.');
+            return;
+        }
+
+        await vscode.commands.executeCommand('abl-linter.compileRemote', selectedFolders);
+    });
+
+    context.subscriptions.push(disposable);
+}
+
 export function registerFacilitatorCommands(context: vscode.ExtensionContext) {
     // Selecionar Repositório de Compilação
     context.subscriptions.push(
@@ -133,3 +155,4 @@ export function registerFacilitatorCommands(context: vscode.ExtensionContext) {
         })
     );
 }
+
