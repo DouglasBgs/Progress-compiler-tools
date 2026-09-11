@@ -666,6 +666,12 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
                     ws.on('error', (err) => {
                         reject(err);
                     });
+
+                    ws.on('close', (code) => {
+                        // Após completed/error a Promise já está resolvida. Um fechamento
+                        // anterior precisa encerrar a espera da extensão com uma mensagem.
+                        reject(new Error(`Conexão com o servidor encerrada antes do resultado (WebSocket ${code}). Consulte o job ${jobId} nos logs do servidor.`));
+                    });
                 });
 
                 // ── 4. Buscar o Payload Gigante Final (GET /result/:id) ─────────

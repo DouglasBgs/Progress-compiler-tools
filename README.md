@@ -46,7 +46,7 @@ Extensão para Visual Studio Code que oferece compilação remota de arquivos **
 - Parâmetros entre aspas presentes nos traces são omitidos no relatório
 
 ### 📊 Dashboard de Rastreamento de Compilação
-- Fila com até **3 compilações concorrentes** e notificação de status por WebSocket
+- Fila por contexto com **workers Progress persistentes**, concorrência configurável e notificação de status por WebSocket
 - Persistência de métricas de jobs em **SQLite**, gerenciada por **TypeORM**
 - Histórico de job, hostname, IP, banco/repositório, quantidade de arquivos e fontes ABL, resultado, erros e duração
 - Dashboard protegido por login com senha em hash **bcrypt**, token **JWT** (expiração de 1 hora) e limitação de tentativas de login
@@ -152,6 +152,54 @@ npm start
 npm run dev
 ```
 
+### Executar como serviço do Windows
+
+O servidor pode ser instalado como serviço usando [NSSM](https://nssm.cc/). O serviço executa o Node.js sem abrir uma janela e reinicia automaticamente o servidor em caso de falha. Os workers `prowin.exe` continuam sendo criados pelo `WorkerManager` com `-b` e `windowsHide`.
+
+1. Instale o NSSM no servidor e deixe `nssm.exe` no `PATH`, ou informe o caminho completo no script.
+2. Abra o PowerShell **como Administrador**.
+3. Configure `compile-server/.env` e `server.config.json`.
+4. Faça o build e a migração:
+
+```powershell
+cd C:\caminho\compile-server
+npm install
+npm run build
+npm run db:migrate:prod
+```
+
+5. Instale e inicie o serviço:
+
+```powershell
+npm run service:install -- -NssmPath "C:\ferramentas\nssm\win64\nssm.exe" -Start
+```
+
+O nome padrão do serviço é `ABLCompileServer`. Para usar outro nome:
+
+```powershell
+npm run service:install -- -ServiceName "EMS2CompileServer" -Start
+```
+
+O serviço usa o `.env` no diretório do servidor. Portanto, configure no mínimo `DLC`, `PORT`, `JWT_SECRET`, `DASHBOARD_USER` e `DASHBOARD_PASSWORD_HASH`. A conta do serviço também precisa ter acesso aos bancos, aos arquivos `.pf`/`.ini`, aos diretórios de compilação e aos compartilhamentos UNC. Não use unidades de rede mapeadas.
+
+Comandos de operação:
+
+```powershell
+Get-Service ABLCompileServer
+nssm restart ABLCompileServer
+nssm stop ABLCompileServer
+Get-Content .\logs\service.stdout.log -Wait
+Get-Content .\logs\service.stderr.log -Wait
+```
+
+Para remover o serviço:
+
+```powershell
+npm run service:remove -- -ServiceName "ABLCompileServer" -NssmPath "C:\ferramentas\nssm\win64\nssm.exe"
+```
+
+Após atualizar o código, execute `npm run build` e reinicie o serviço. O servidor recebe `SIGTERM`, encerra o pool de workers e só então finaliza o processo.
+
 ---
 
 ## 🖥️ Configuração do Servidor de Compilação
@@ -189,6 +237,17 @@ Os caminhos de `.pf` e `.ini` suportam o placeholder **`{repository}`**, que ser
 ```json
 {
   "defaultRepository": "EMS2.08",
+  "workerPool": {
+    "enabled": true,
+    "port": 9095,
+    "prewarmDatabases": ["Progress", "SQL Server", "Oracle"],
+    "prewarmRepositories": ["EMS2.08", "FND1.02", "CRM"],
+    "workersPerDb": 1,
+    "jobTimeoutMs": 30000,
+    "startupTimeoutMs": 60000,
+    "heartbeatIntervalMs": 30000,
+    "heartbeatTimeoutMs": 10000
+  },
   "databases": {
     "Progress": {
       "pf": "\\\\meu-servidor\\compilacao\\{repository}\\connect.pf",
@@ -217,6 +276,50 @@ Os caminhos de `.pf` e `.ini` suportam o placeholder **`{repository}`**, que ser
 
 > **Importante:** Apenas os bancos configurados aqui estarão disponíveis para seleção no VSCode. A chave `patchConfig` é obrigatória caso deseje utilizar a compilação no modo **Patch**.
 
+### Workers persistentes (OpenEdge 12.8 / Windows)
+
+Toda compilação, inclusive Patch, passa por um worker. Cada processo Progress permanece conectado ao seu contexto e recebe novos jobs pelo socket local. O servidor não abre um compilador descartável quando o pool está ocupado: o pedido aguarda em fila FIFO e mantém status `queued` até começar. Cada worker executa um job por vez, independentemente do usuário/agente que o enviou.
+
+`workersPerDb` define a quantidade fixa de workers **por combinação de repositório + banco + caminhos PF/INI resolvidos**, não por usuário nem um limite global. O padrão é 1: duas compilações do mesmo contexto são sequenciais. Com 2, elas usam workers distintos em paralelo; a terceira aguarda. Contextos diferentes têm pools separados para evitar misturar repositórios ou versões de Patch. Novos contextos são iniciados na primeira requisição e permanecem ativos. `prewarmDatabases` seleciona os bancos e `prewarmRepositories` seleciona os repositórios que serão iniciados antecipadamente (somente com PF preenchido). O arquivo de exemplo inicia EMS2.08, FND1.02 e CRM. Outros repositórios continuam disponíveis na primeira requisição. Sem `prewarmRepositories`, são usados o repositório padrão e os cadastrados em `repositories`.
+
+A identidade do worker inclui explicitamente o repositório, mesmo quando dois ambientes compartilham PF/INI. Os logs e `GET /api/workers/status` exibem esse repositório. Os nomes devem corresponder aos enviados pela extensão: `EMS2.08`, `FND1.02`, `CRM`, etc.
+
+Os templates em `databases` continuam funcionando. Para um ambiente com caminhos diferentes, adicione uma configuração opcional no nível raiz de `server.config.json`:
+
+```json
+"repositories": {
+  "CRM": {
+    "databases": {
+      "Progress": {
+        "pf": "C:/ambientes/crm/connect.pf",
+        "ini": "C:/ambientes/crm/progress.ini"
+      }
+    }
+  },
+  "FND1.02": {
+    "databases": {
+      "Progress": {
+        "ini": "C:/ambientes/fnd/progress.ini"
+      }
+    }
+  }
+}
+```
+
+Cada propriedade informada substitui a configuração geral do banco; as demais são herdadas. Depois são resolvidos os placeholders `{repository}`. Ajuste o PROPATH no INI de cada ambiente para seus fontes/includes e dependências. Criar sessões separadas não corrige um INI que aponta para bibliotecas erradas. Patch mantém a resolução por versão/subtipo/repositório recebida na API e usa sessões separadas por repositório também.
+
+Todos os dias às **02h no fuso local do servidor**, cada worker para de aceitar novos jobs, termina a compilação atual e reinicia uma vez. A fila é preservada durante o reinício. Não há reciclagem por ociosidade, número de jobs ou erro de sintaxe/schema do fonte. O endpoint administrativo `POST /api/workers/recycle` permite solicitar uma atualização manual do contexto e também aguarda os jobs ativos.
+
+Quedas, falhas de conexão e travamentos disparam recuperação automática com espera crescente entre tentativas (1, 2, 4… até 60 segundos). O job interrompido recebe status `error`; os pedidos ainda na fila aguardam a recuperação. Se nenhum worker do contexto estiver disponível (ou compilando) durante `startupTimeoutMs`, esses pedidos recebem erro com repositório/PF/INI e última falha, em vez de aguardar indefinidamente. A recuperação das sessões continua; a fila de um worker saudável ocupado não tem esse limite. Um substituto só inicia após a saída confirmada do processo anterior. O heartbeat verifica workers ociosos; durante uma compilação vale `jobTimeoutMs`, contado a partir da atribuição ao worker, sem incluir a espera em fila. Ajuste esse tempo para o maior lote esperado no seu ambiente.
+
+`GET /api/workers/status` mostra os contextos, tamanho das filas, estados e próximo reinício. Os logs identificam qual worker recebeu cada job e a causa de qualquer recuperação. A porta TCP do pool escuta apenas em `127.0.0.1`.
+
+Para atualizar no Windows, publique o servidor e o daemon juntos, execute `npm run build` na pasta `compile-server` e reinicie o serviço Node uma vez. O build copia `scripts/_worker_daemon.p` para `dist/scripts/` usando Node, sem depender de `cp` ou `mkdir` do Unix. O pool habilitado é obrigatório; falhas de inicialização não ativam compilação descartável. PF/INI devem estar acessíveis à conta Windows que executa o serviço.
+
+Verificação local: `npm run test:workers` cobre fila, exclusividade, recuperação, timers e contratos das rotas com processos/sockets simulados. Para homologar no Progress real, envie dois jobs sequenciais e confira o mesmo worker; com `workersPerDb: 2`, envie três simultâneos e confira dois workers distintos e um pedido na fila. Confira também um fonte com erro seguido de um válido, um job Patch e o reinício diário com job em execução. O daemon ABL precisa dessa validação no Windows/OpenEdge 12.8; os testes Node não compilam ABL.
+
+Referências do protocolo ABL: [leitura de socket](https://documentation.progress.com/output/ua/OpenEdge_latest/dvref/read%28-%29-method-%28socket%29.html), [escrita de socket](https://docs.progress.com/bundle/openedge-abl-reference-128/page/WRITE-method-Socket.html), [serialização JSON](https://docs.progress.com/bundle/openedge-abl-reference-128/page/WriteFile-method-JsonConstruct.html).
+
 ### Funcionamento do `patchConfig`
 
 O modo Patch resolve caminhos dinamicamente com base na versão informada.
@@ -235,8 +338,9 @@ A lógica de busca de arquivos segue o padrão:
 | Script | Descrição |
 |--------|-----------|
 | `npm run dev` | Execução em desenvolvimento (ts-node, sem build) |
-| `npm run build` | Compila TypeScript para `dist/` e copia os arquivos estáticos do dashboard |
+| `npm run build` | Compila TypeScript para `dist/` e copia o dashboard e o daemon ABL (Windows/Linux) |
 | `npm start` | Inicia a partir do build compilado (`dist/server.js`) |
+| `npm run test:workers` | Testa pool persistente, protocolo, recuperação e contratos de compilação |
 | `npm run watch` | Assiste e recompila TypeScript automaticamente |
 | `npm run db:migrate` | Cria/atualiza o banco SQLite e as tabelas em desenvolvimento |
 | `npm run db:migrate:prod` | Cria/atualiza o banco SQLite a partir do build de produção |
@@ -672,13 +776,12 @@ VSCode (Cliente)                        Servidor (Node.js + Progress)
 4. POST /compile ──────────────────────→ Recebe payload JSON
                                           5. Cria pasta temp/UUID/
                                           6. Desempacota os fontes
-                                          7. Gera _mass_compile.p dinamicamente
-                                          8. Executa:
-                                             prowin -b -pf connect.pf -p _mass_compile.p
-                                          9. Lê compile_report.json gerado
-                                         10. Coleta binários .r de resultado/
-                                         11. Remove pasta temp/UUID/
-                   ←────────────────────  12. Retorna { compiledFiles[], errors[] }
+                                          7. Enfileira no contexto PF/INI correto
+                   ←────────────────────  8. Retorna 202 { status: "queued", jobId }
+                                          9. Worker livre compila o job (WebSocket: processing)
+                                         10. Lê relatório e binários .r de resultado/
+                                         11. Remove temporários (WebSocket: completed/error)
+   GET /result/:jobId ──────────────────→ 12. Retorna { status, compiledFiles[], errors[], message }
 13. SE erros → exibe no Output
     SE sucesso → pergunta destino
 14. Grava .r no destino escolhido

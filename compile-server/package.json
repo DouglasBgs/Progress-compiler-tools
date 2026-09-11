@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && mkdir -p dist/dashboard/public && cp -r src/dashboard/public/* dist/dashboard/public/",
+    "build": "tsc && node tools/copy-assets.cjs",
     "start": "node dist/server.js",
+    "service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File dist/scripts/install-windows-service.ps1",
+    "service:remove": "powershell -NoProfile -ExecutionPolicy Bypass -File dist/scripts/remove-windows-service.ps1",
     "dev": "ts-node src/server.ts",
     "watch": "tsc -watch -p .",
     "db:migrate": "ts-node --transpile-only src/db/migrate.ts",
@@ -14,7 +16,8 @@
     "hash-password:prod": "node dist/auth/hash-password.js",
     "logs:import": "ts-node --transpile-only src/db/import-log.ts",
     "logs:import:prod": "node dist/db/import-log.js",
-    "test:logs": "node --test -r ts-node/register/transpile-only test/job-log.parser.test.cjs"
+    "test:logs": "node --test -r ts-node/register/transpile-only test/job-log.parser.test.cjs",
+    "test:workers": "node -r ts-node/register/transpile-only test/workers.test.cjs"
   },
   "keywords": [],
   "author": "",

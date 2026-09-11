@@ -1,5 +1,23 @@
 {
   "defaultRepository": "",
+  "workerPool": {
+    "enabled": true,
+    "port": 9095,
+    "prewarmDatabases": [
+      "Progress",
+      "SQL Server"
+    ],
+    "workersPerDb": 1,
+    "jobTimeoutMs": 30000,
+    "startupTimeoutMs": 60000,
+    "heartbeatIntervalMs": 30000,
+    "heartbeatTimeoutMs": 10000,
+    "prewarmRepositories": [
+      "EMS2.08",
+      "FND1.02",
+      "CRM"
+    ]
+  },
   "databases": {
     "Progress": {
       "pf": "",

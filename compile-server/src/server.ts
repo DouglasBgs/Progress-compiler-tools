@@ -6,13 +6,17 @@ import bodyParser from 'body-parser';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec } from 'child_process';
 import * as http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { logger } from './logger';
 import { AppDataSource } from './db/data-source';
 import { createJobMetric, updateJobMetric } from './db/jobMetric.repository';
 import { registerDashboardRoutes } from './dashboard/dashboard.routes';
+import { WorkerManager } from './worker/worker-manager';
+import { resolveRepositorySettings, resolvePrewarmContexts } from './worker/repository-context';
+import { WorkerDbSettings } from './worker/worker-protocol';
+
+let workerManager: WorkerManager | null = null;
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -44,7 +48,8 @@ interface CompileJob {
 }
 
 // Queue system for scalability
-const MAX_CONCURRENT_JOBS = 3;
+// A concorrência é controlada pelos slots persistentes de cada contexto.
+let shuttingDown = false;
 let activeJobs = 0;
 const jobQueue: CompileJob[] = [];
 const jobResults = new Map<string, CompileJob>();
@@ -87,28 +92,26 @@ function notifyClient(jobId: string, payload: any) {
 
 // Worker loop
 async function processQueue() {
-    if (jobQueue.length === 0) {
+    if (shuttingDown || jobQueue.length === 0) {
         return;
     }
-    if (activeJobs >= MAX_CONCURRENT_JOBS) {
-        logger.info('Queue', `Limite de jobs ativos atingido, aguardando vaga`, { activeJobs, maxConcurrent: MAX_CONCURRENT_JOBS, pendingJobs: jobQueue.length });
-        return;
-    }
-
     activeJobs++;
     const job = jobQueue.shift()!;
-    job.status = 'processing';
     jobResults.set(job.jobId, job);
 
     const waitTimeMs = Date.now() - job.createdAt;
     
-    notifyClient(job.jobId, { status: 'processing', jobId: job.jobId });
     logger.info('Queue', `Iniciando processamento do job`, { jobId: job.jobId, machineName: job.machineName, activeJobs, pendingJobs: jobQueue.length, waitTimeMs, filesCount: job.files.length, dbType: job.dbType });
 
-    const startTime = Date.now();
-
+    let startTime = Date.now();
+    // Encaminha os próximos pedidos; cada pool mantém sua própria fila FIFO.
+    setTimeout(processQueue, 0);
     try {
-        await executeCompileJob(job);
+        await executeCompileJob(job, () => {
+            startTime = Date.now();
+            job.status = 'processing';
+            notifyClient(job.jobId, { status: 'processing', jobId: job.jobId });
+        });
         job.status = 'completed';
         notifyClient(job.jobId, { status: 'completed', jobId: job.jobId });
 
@@ -141,219 +144,120 @@ async function processQueue() {
     }
 }
 
-async function executeCompileJob(job: CompileJob): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const ctx = `Compile:${job.jobId.substring(0, 8)}`;
-        const jobStart = Date.now();
+/** Toda compilação utiliza uma sessão persistente, inclusive Patch. */
+async function executeCompileJob(job: CompileJob, onStart: () => void): Promise<void> {
+    const ctx = `Compile:${job.jobId.substring(0, 8)}`;
+    const jobStart = Date.now();
 
-        const baseTempPath = path.join(__dirname, '..', 'temp', job.jobId);
-        const resultadoPath = path.join(baseTempPath, 'resultado');
+    const baseTempPath = path.join(__dirname, '..', 'temp', job.jobId);
+    const resultadoPath = path.join(baseTempPath, 'resultado');
+    const reportPath = path.join(baseTempPath, 'compile_report.json');
 
-        logger.info(ctx, `Preparando diretórios temporários`, { baseTempPath });
+    // Prepara os arquivos isolados do job antes de enfileirar no pool.
+    logger.info(ctx, `Preparando diretórios temporários`, { baseTempPath });
+    if (!fs.existsSync(baseTempPath)) fs.mkdirSync(baseTempPath, { recursive: true });
+    if (!fs.existsSync(resultadoPath)) fs.mkdirSync(resultadoPath, { recursive: true });
 
-        if (!fs.existsSync(baseTempPath)) fs.mkdirSync(baseTempPath, { recursive: true });
-        if (!fs.existsSync(resultadoPath)) fs.mkdirSync(resultadoPath, { recursive: true });
-
-        const ablSources: string[] = [];
-
-        // Extraimos arquivos do job para o disco
-        const extractStart = Date.now();
-        for (const file of job.files) {
-            const fullPath = path.join(baseTempPath, file.relativePath);
-            const dir = path.dirname(fullPath);
-
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-            
-            const dirResultado = path.join(resultadoPath, path.dirname(file.relativePath));
-            if (!fs.existsSync(dirResultado)) fs.mkdirSync(dirResultado, { recursive: true });
-
-            fs.writeFileSync(fullPath, Buffer.from(file.contentBase64, 'base64'));
-            
-            if (/\.(p|py|w|cls)$/i.test(fullPath)) {
-                ablSources.push(file.relativePath);
-            }
+    const ablSources: string[] = [];
+    const extractStart = Date.now();
+    for (const file of job.files) {
+        const fullPath = path.join(baseTempPath, file.relativePath);
+        const dir = path.dirname(fullPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const dirResultado = path.join(resultadoPath, path.dirname(file.relativePath));
+        if (!fs.existsSync(dirResultado)) fs.mkdirSync(dirResultado, { recursive: true });
+        fs.writeFileSync(fullPath, Buffer.from(file.contentBase64, 'base64'));
+        if (/\.(p|py|w|cls)$/i.test(fullPath)) {
+            ablSources.push(file.relativePath);
         }
-        logger.timed(ctx, `Arquivos extraídos para disco`, extractStart, { totalFiles: job.files.length, ablSources: ablSources.length });
+    }
+    logger.timed(ctx, `Arquivos extraídos para disco`, extractStart, { totalFiles: job.files.length, ablSources: ablSources.length });
 
-        const compileScriptPath = path.join(baseTempPath, '_mass_compile.p');
-        const reportPath = path.join(baseTempPath, 'compile_report.json');
-        
-        let compileScriptContent = `
-DEFINE VARIABLE i AS INTEGER NO-UNDO.
-DEFINE VARIABLE cErros AS CHARACTER NO-UNDO.
-DEFINE VARIABLE cMsg AS CHARACTER NO-UNDO.
-DEFINE VARIABLE cLine AS CHARACTER NO-UNDO.
- 
-PROPATH = "${baseTempPath.replace(/\\/g, '/')} " + "," + PROPATH.
-
-OUTPUT TO "${reportPath.replace(/\\/g, '/')}" CONVERT TARGET "UTF-8".
-PUT UNFORMATTED "[" SKIP.
-`;
-    
-        for (let idx = 0; idx < ablSources.length; idx++) {
-            const src = ablSources[idx];
-            const unixPath = src.replace(/\\/g, '/');
-            const pathNoFile = path.dirname(unixPath);
-            const fullLocalPath = path.join(baseTempPath, src).replace(/\\/g, '/');
-            const isClass = /\.cls$/i.test(src);
-            const saveIntoPath = isClass ? "resultado" : `resultado/${pathNoFile}`;
-            const isLast = (idx === ablSources.length - 1);
-            
-            compileScriptContent += `
-COMPILE "${fullLocalPath}" SAVE INTO "${saveIntoPath}" NO-ERROR.
-cLine = "~{" + '"file": "${unixPath}", "success": ' + (IF COMPILER:ERROR THEN "false" ELSE "true") + ', "messages": ['.
-PUT UNFORMATTED cLine.
-
-cErros = "".
-IF ERROR-STATUS:NUM-MESSAGES > 0 OR COMPILER:ERROR THEN DO:
-    IF COMPILER:ERROR THEN DO:
-        cMsg = "[Linha " + STRING(COMPILER:ERROR-ROW) + " / Col " + STRING(COMPILER:ERROR-COL) + "] Falha na compilacao listada abaixo.".
-        cMsg = REPLACE(cMsg, "${baseTempPath}\\", "").
-        cMsg = REPLACE(cMsg, "${baseTempPath}/", "").
-        cMsg = REPLACE(cMsg, "${baseTempPath}", "").
-        cMsg = REPLACE(cMsg, CHR(92), CHR(92) + CHR(92)). 
-        cMsg = REPLACE(cMsg, CHR(34), CHR(92) + CHR(34)). 
-        cMsg = REPLACE(cMsg, CHR(10), CHR(92) + "n").     
-        cMsg = REPLACE(cMsg, CHR(13), CHR(92) + "r").     
-        cErros = cErros + (IF cErros <> "" THEN "," ELSE "") + CHR(34) + cMsg + CHR(34).
-    END.
-
-    DO i = 1 TO ERROR-STATUS:NUM-MESSAGES:
-        cMsg = "[Mensagem] " + ERROR-STATUS:GET-MESSAGE(i).
-        IF cMsg <> ? THEN DO:
-            cMsg = REPLACE(cMsg, "${baseTempPath}\\", "").
-            cMsg = REPLACE(cMsg, "${baseTempPath}/", "").
-            cMsg = REPLACE(cMsg, "${baseTempPath}", "").
-            cMsg = REPLACE(cMsg, CHR(92), CHR(92) + CHR(92)). 
-            cMsg = REPLACE(cMsg, CHR(34), CHR(92) + CHR(34)). 
-            cMsg = REPLACE(cMsg, CHR(10), CHR(92) + "n").     
-            cMsg = REPLACE(cMsg, CHR(13), CHR(92) + "r").     
-            cErros = cErros + (IF cErros <> "" THEN "," ELSE "") + CHR(34) + cMsg + CHR(34).
-        END.
-    END.
-END.
-
-PUT UNFORMATTED cErros + "]}".
-PUT UNFORMATTED "${isLast ? '' : ','}" SKIP.
-`;
-        }
-        
-        compileScriptContent += `
-PUT UNFORMATTED "]" SKIP.
-OUTPUT CLOSE.
-QUIT.
-`;
-
-        fs.writeFileSync(compileScriptPath, compileScriptContent);
-        logger.info(ctx, `Script de compilação gerado`, { scriptPath: compileScriptPath, sourcesCount: ablSources.length });
-
-        let finalPfPath = '';
-        let finalIniPath = '';
-
-        if (job.dbSettings.pf && fs.existsSync(job.dbSettings.pf)) {
-            finalPfPath = path.join(baseTempPath, 'compile.pf');
-            let pfContent = fs.readFileSync(job.dbSettings.pf, 'utf8');
-            const unixBaseTempPath = baseTempPath.replace(/\\/g, '/');
-            if (/-PROPATH\s+/i.test(pfContent)) {
-                pfContent = pfContent.replace(/(-PROPATH\s+)([^\r\n]+)/i, `$1${unixBaseTempPath},$2`);
-            } else if (!job.dbSettings.ini) {
-                pfContent += `\n-PROPATH ${unixBaseTempPath}\n`;
-            }
-            fs.writeFileSync(finalPfPath, pfContent);
-            logger.info(ctx, `Arquivo .pf preparado`, { originalPf: job.dbSettings.pf, finalPf: finalPfPath });
-        }
-
-        if (job.dbSettings.ini && fs.existsSync(job.dbSettings.ini)) {
-            finalIniPath = path.join(baseTempPath, 'compile.ini');
-            let iniContent = fs.readFileSync(job.dbSettings.ini, 'utf8');
-            const unixBaseTempPath = baseTempPath.replace(/\\/g, '/');
-            if (/^PROPATH=/im.test(iniContent)) {
-                iniContent = iniContent.replace(/^PROPATH=(.*)$/im, `PROPATH=${unixBaseTempPath},$1`);
-            } else if (/^\[Startup\]/im.test(iniContent)) {
-                iniContent = iniContent.replace(/^\[Startup\]/im, `[Startup]\nPROPATH=${unixBaseTempPath}`);
-            } else {
-                iniContent = `[Startup]\nPROPATH=${unixBaseTempPath}\n\n` + iniContent;
-            }
-            fs.writeFileSync(finalIniPath, iniContent);
-            logger.info(ctx, `Arquivo .ini preparado`, { originalIni: job.dbSettings.ini, finalIni: finalIniPath });
-        }
-
-        const strPf = finalPfPath ? `-pf "${finalPfPath}"` : '';
-        const strIni = finalIniPath ? `-ininame "${finalIniPath}"` : '';
-
-        const dlcPath = process.env.DLC || 'C:\\Progress\\OpenEdge';
-        const isWindows = process.platform === 'win32';
-        const exeName = isWindows ? 'prowin.exe' : 'prowin';
-        
-        const compilerCmd = fs.existsSync(path.join(dlcPath, 'bin', exeName)) 
-            ? `"${path.join(dlcPath, 'bin', exeName)}"` 
-            : exeName;
-
-        const command = `${compilerCmd} -b ${strPf} ${strIni} -p "${compileScriptPath}"`;
-
-        logger.info(ctx, `Executando compilador OpenEdge`, { command, cwd: baseTempPath, dlcPath });
-        const execStart = Date.now();
-
-        exec(command, { cwd: baseTempPath }, (error) => {
-            if (error) {
-                logger.error(ctx, `Processo do compilador retornou erro`, { error: error.message, code: error.code, signal: error.signal });
-            }
-
-            logger.timed(ctx, `Processo do compilador finalizado`, execStart);
-
-            let reportData: any[] = [];
-            if (fs.existsSync(reportPath)) {
-                try {
-                    reportData = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-                    logger.info(ctx, `Relatório de compilação lido`, { entriesCount: reportData.length });
-                } catch (err: any) {
-                    logger.error(ctx, `Falha ao ler relatório de compilação`, { reportPath, error: err.message });
-                }
-            } else {
-                logger.warn(ctx, `Relatório de compilação não encontrado`, { reportPath });
-            }
-
-            const compiledFiles: FilePayload[] = [];
-            const compilationErrors: any[] = [];
-
-            for (const item of reportData) {
-                const parsed = path.parse(item.file);
-                const rRelativePath = path.posix.join(parsed.dir, parsed.name + '.r');
-                const rFullPath = path.join(resultadoPath, rRelativePath);
-
-                const hasRFile = fs.existsSync(rFullPath);
-
-                if (hasRFile) {
-                    compiledFiles.push({
-                        relativePath: rRelativePath,
-                        contentBase64: fs.readFileSync(rFullPath).toString('base64')
-                    });
-                }
-
-                if (item.messages && item.messages.length > 0) {
-                    compilationErrors.push({ file: item.file, messages: item.messages, isWarning: hasRFile });
-                } else if (!hasRFile) {
-                    compilationErrors.push({ file: item.file, messages: ['Falha na geração do compilado (.r) ou erro de sintaxe estrutural.'], isWarning: false });
-                }
-            }
-            
-            job.result = { compiledFiles, errors: compilationErrors };
-
-            logger.info(ctx, `Resultado da compilação processado`, { compiledOk: compiledFiles.length, errors: compilationErrors.length });
-
-            // Limpeza de arquivos temporários
-            try {
-                fs.rmSync(baseTempPath, { recursive: true, force: true });
-                logger.debug(ctx, `Diretório temporário removido`, { baseTempPath });
-            } catch (cleanupErr: any) {
-                logger.warn(ctx, `Falha ao remover diretório temporário`, { baseTempPath, error: cleanupErr.message });
-            }
-
-            logger.timed(ctx, `Job de compilação concluído (total)`, jobStart, { compiledOk: compiledFiles.length, errors: compilationErrors.length });
-            resolve();
-        });
-    });
+    try {
+        if (!workerManager) throw new Error('Worker Pool indisponível.');
+        await workerManager.dispatchJob(job.jobId, job.dbType, baseTempPath, reportPath,
+            ablSources, job.dbSettings, onStart);
+        await collectCompileResult(job, ctx, jobStart, baseTempPath, resultadoPath, reportPath);
+    } finally {
+        // O resultado já foi coletado ou o job falhou; cada diretório pertence a um único job.
+        try { fs.rmSync(baseTempPath, { recursive: true, force: true }); }
+        catch (error: any) { logger.warn(ctx, 'Falha ao limpar temporários', { error: error.message }); }
+    }
 }
+
+/**
+ * Coleta os arquivos .r e erros do relatório JSON gerado pelo worker,
+ * preenchendo job.result no formato esperado pela extensão.
+ */
+async function collectCompileResult(
+    job: CompileJob,
+    ctx: string,
+    jobStart: number,
+    baseTempPath: string,
+    resultadoPath: string,
+    reportPath: string
+): Promise<void> {
+    // Relatório ausente/inválido é falha do job, nunca sucesso vazio.
+    const reportData = JSON.parse(fs.readFileSync(reportPath, 'utf8').replace(/^\uFEFF/, ''));
+    if (!Array.isArray(reportData)) throw new Error('Relatório de compilação inválido.');
+    const expectedSources = job.files.filter(file => /\.(p|py|w|cls)$/i.test(file.relativePath))
+        .map(file => file.relativePath.replace(/\\/g, '/'));
+    if (reportData.length !== expectedSources.length || reportData.some((item: any, index: number) =>
+        !item || item.file !== expectedSources[index] || typeof item.success !== 'boolean' ||
+        !Array.isArray(item.messages) || item.messages.some((message: any) => typeof message !== 'string'))) {
+        throw new Error('Relatório de compilação incompleto ou inválido.');
+    }
+
+    const compiledFiles: FilePayload[] = [];
+    const compilationErrors: any[] = [];
+
+    for (const item of reportData) {
+        const parsed = path.parse(item.file);
+        const rRelativePath = path.posix.join(parsed.dir, parsed.name + '.r');
+        const rFullPath = path.join(resultadoPath, rRelativePath);
+        const hasRFile = fs.existsSync(rFullPath);
+
+        if (hasRFile) {
+            compiledFiles.push({
+                relativePath: rRelativePath,
+                contentBase64: fs.readFileSync(rFullPath).toString('base64')
+            });
+        }
+        if (item.messages && item.messages.length > 0) {
+            compilationErrors.push({ file: item.file, messages: item.messages, isWarning: hasRFile });
+        } else if (!hasRFile) {
+            compilationErrors.push({ file: item.file, messages: ['Falha na geração do compilado (.r) ou erro de sintaxe estrutural.'], isWarning: false });
+        }
+    }
+
+    job.result = { compiledFiles, errors: compilationErrors };
+    logger.info(ctx, `Resultado da compilação processado`, { compiledOk: compiledFiles.length, errors: compilationErrors.length });
+
+    logger.timed(ctx, `Job de compilação concluído (total)`, jobStart, { compiledOk: compiledFiles.length, errors: compilationErrors.length });
+}
+
+// =========================================================================
+// Endpoints administrativos do Worker Pool
+// =========================================================================
+
+/** Força a reciclagem de todos os workers (útil após deploy de banco/schema) */
+app.post('/api/workers/recycle', (req: Request, res: Response) => {
+    if (!workerManager) {
+        return res.status(503).json({ status: 'disabled', message: 'Worker Pool não está ativo.' });
+    }
+    const reason = (req.body?.reason as string) || 'manual_api';
+    workerManager.recycleAll(reason);
+    logger.info('API', `Reciclagem de workers solicitada via API`, { reason, ip: req.ip });
+    return res.json({ status: 'ok', message: 'Reciclagem de todos os workers iniciada.' });
+});
+
+/** Retorna o status atual de todos os workers do pool */
+app.get('/api/workers/status', (_req: Request, res: Response) => {
+    if (!workerManager) {
+        return res.json({ enabled: false, message: 'Worker Pool não está ativo.' });
+    }
+    return res.json(workerManager.getStatus());
+});
 
 // Queue API
 app.post('/compile', async (req: Request, res: Response) => {
@@ -381,7 +285,11 @@ app.post('/compile', async (req: Request, res: Response) => {
         }
 
         // Resolve o repositório: prioriza o valor enviado pelo cliente, depois o padrão do config, e por último EMS2.08
-        const repository: string = req.body.repository || serverConfig.defaultRepository || 'EMS2.08';
+        const repositoryValue = req.body.repository || serverConfig.defaultRepository || 'EMS2.08';
+        if (typeof repositoryValue !== 'string' || !repositoryValue.trim()) {
+            return res.status(400).json({ status: 'error', message: 'Repositório inválido.' });
+        }
+        const repository = repositoryValue.trim();
 
         logger.info('API', `POST /compile recebido`, { filesCount: files?.length, dbType, repository, hasPatchInfo: !!patchInfo, machineName, ip: req.ip });
 
@@ -410,23 +318,15 @@ app.post('/compile', async (req: Request, res: Response) => {
             const iniPath = path.join(shortcutPath, 'progress-12.ini');
 
             dbSettings = {
+                repository,
                 pf: pfPath,
                 ini: iniPath
             };
 
             logger.info('API', `Configuração de Patch resolvida`, { patchVersion: patchInfo.patchVersion, subType: patchInfo.subType, repository, pfPath, iniPath });
         } else {
-            dbSettings = serverConfig.databases?.[dbType];
-            if (dbSettings) {
-                // Resolve o placeholder {repository} nos caminhos de pf e ini
-                if (dbSettings.pf) {
-                    dbSettings = { ...dbSettings, pf: dbSettings.pf.replace(/\{repository\}/g, repository) };
-                }
-                if (dbSettings.ini) {
-                    dbSettings = { ...dbSettings, ini: dbSettings.ini.replace(/\{repository\}/g, repository) };
-                }
-                logger.info('API', `Configuração de banco de dados carregada`, { dbType, repository, pf: dbSettings.pf, ini: dbSettings.ini });
-            }
+            dbSettings = resolveRepositorySettings(serverConfig, dbType, repository);
+            if (dbSettings) logger.info('API', 'Contexto de repositório resolvido', { dbType, ...dbSettings });
         }
 
         if (!dbSettings) {
@@ -505,12 +405,45 @@ app.get('/result/:jobId', (req: Request, res: Response) => {
 });
 
 AppDataSource.initialize()
-    .then(() => {
+    .then(async () => {
         logger.info('Database', 'Conexão com SQLite estabelecida (TypeORM)');
+
+        // Inicializa o Worker Pool de sessões OpenEdge persistentes
+        const configPath = path.join(__dirname, '..', 'server.config.json');
+        if (fs.existsSync(configPath)) {
+            try {
+                const serverConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                const poolConfig = serverConfig.workerPool;
+
+                if (poolConfig && poolConfig.enabled) {
+                    const defaultRepo = serverConfig.defaultRepository || 'EMS2.08';
+                    const resolvedDatabases: Record<string, WorkerDbSettings> = {};
+                    for (const dbType of poolConfig.prewarmDatabases || []) {
+                        const settings = resolveRepositorySettings(serverConfig, dbType, defaultRepo);
+                        if (settings) resolvedDatabases[dbType] = settings;
+                    }
+                    const contexts = resolvePrewarmContexts(serverConfig);
+                    workerManager = new WorkerManager(poolConfig, resolvedDatabases);
+                    await workerManager.initialize(contexts);
+                    logger.info('Server', `Worker Pool TCP iniciado`, {
+                        prewarmDatabases: poolConfig.prewarmDatabases,
+                        workersPerDb: poolConfig.workersPerDb,
+                        port: poolConfig.port
+                    });
+                } else {
+                    throw new Error('Configure workerPool.enabled=true; compilações exigem workers persistentes.');
+                }
+            } catch (configErr: any) {
+                if (workerManager) await workerManager.shutdown();
+                throw configErr;
+            }
+        }
+
+        if (!workerManager) throw new Error('server.config.json deve configurar o Worker Pool.');
         server.listen(PORT, () => {
             logger.info('Server', `═══════════════════════════════════════════════════`);
             logger.info('Server', `ABL Compile Server iniciado com sucesso`);
-            logger.info('Server', `Porta: ${PORT} | Max Jobs: ${MAX_CONCURRENT_JOBS}`);
+            logger.info('Server', `Porta: ${PORT} | WorkerPool: ${workerManager ? 'ATIVO' : 'DESABILITADO'}`);
             logger.info('Server', `PID: ${process.pid} | Node: ${process.version} | Plataforma: ${process.platform}`);
             logger.info('Server', `DLC: ${process.env.DLC || '(não definido)'}`);
             logger.info('Server', `LOG_LEVEL: ${process.env.LOG_LEVEL || 'info (padrão)'}`);
@@ -519,6 +452,8 @@ AppDataSource.initialize()
                 routes: [
                     'POST   /compile',
                     'GET    /result/:jobId',
+                    'POST   /api/workers/recycle',
+                    'GET    /api/workers/status',
                     'POST   /api/auth/login',
                     'GET    /api/dashboard/metrics',
                     'GET    /api/dashboard/jobs',
@@ -528,26 +463,30 @@ AppDataSource.initialize()
         });
     })
     .catch((err) => {
-        logger.error('Database', 'Falha ao inicializar banco de dados SQLite', { error: err.message });
+        logger.error('Server', 'Falha ao inicializar servidor de compilação', { error: err.message });
         process.exit(1);
     });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-    logger.info('Server', `Sinal SIGINT recebido, encerrando...`, { activeJobs, pendingJobs: jobQueue.length });
-    server.close(() => {
-        logger.info('Server', `Servidor encerrado com sucesso`);
-        process.exit(0);
-    });
-});
+async function gracefulShutdown(signal: string) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info('Server', `Sinal ${signal} recebido, encerrando...`, { activeJobs, pendingJobs: jobQueue.length });
 
-process.on('SIGTERM', () => {
-    logger.info('Server', `Sinal SIGTERM recebido (PM2 stop/restart), encerrando...`, { activeJobs, pendingJobs: jobQueue.length });
+    // Encerra workers antes de fechar o servidor HTTP
+    if (workerManager) {
+        logger.info('Server', `Encerrando Worker Pool...`);
+        await workerManager.shutdown();
+    }
+
     server.close(() => {
         logger.info('Server', `Servidor encerrado com sucesso`);
         process.exit(0);
     });
-});
+}
+
+process.on('SIGINT', () => { void gracefulShutdown('SIGINT'); });
+process.on('SIGTERM', () => { void gracefulShutdown('SIGTERM'); });
 
 process.on('uncaughtException', (err) => {
     logger.error('Server', `EXCEÇÃO NÃO CAPTURADA`, { error: err.message, stack: err.stack });
