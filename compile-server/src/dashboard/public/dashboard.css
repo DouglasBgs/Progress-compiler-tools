@@ -11,9 +11,36 @@ main { padding: 24px; }
 .card { background: #fff; padding: 16px 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); text-align: center; }
 .card span { display: block; font-size: 28px; font-weight: bold; }
 .card label { font-size: 13px; color: #666; }
-.charts { display: flex; gap: 16px; margin-bottom: 24px; }
-.chart-box { flex: 1; background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.chart-box { min-width: 0; background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
 .chart-box h2 { font-size: 14px; margin: 0 0 12px; }
 .chart-box canvas { max-height: 260px; }
 table { width: 100%; border-collapse: collapse; background: #fff; margin-bottom: 24px; }
 th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+
+.filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; background: #fff; padding: 16px; border-radius: 8px; }
+.filters label { display: block; margin-bottom: 6px; font-size: 13px; }
+.filters input { box-sizing: border-box; padding: 9px; border: 1px solid #aaa; border-radius: 4px; max-width: 100%; }
+.filters button { padding: 10px 16px; border: 0; border-radius: 4px; background: #1a73e8; color: #fff; cursor: pointer; }
+.filters button.secondary { background: #e8eaed; color: #222; }
+.filters small { flex-basis: 100%; color: #555; }
+main > section { overflow-x: auto; }
+.cards { flex-wrap: wrap; }
+@media (max-width: 700px) {
+  main { padding: 12px; }
+  .charts { grid-template-columns: 1fr; }
+  .filters > div, .filters input { width: 100%; }
+}
+
+.table-scroll { overflow-x: auto; }
+.repository-counts { max-height: 220px; margin-top: 16px; }
+.repository-counts table { margin-bottom: 0; }
+.pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 24px; }
+.pagination button, .pagination select { padding: 8px 12px; border: 1px solid #aaa; border-radius: 4px; background: #fff; color: #222; }
+.pagination button { cursor: pointer; }
+#pageInfo { margin-right: auto; padding: 4px 8px; font-size: 13px; }
+#jobsTable th { white-space: nowrap; }
+#jobsTable th button { font: inherit; font-weight: bold; color: inherit; background: none; border: none; padding: 4px 0; cursor: pointer; text-align: left; }
+#jobsTable th[aria-sort="ascending"], #jobsTable th[aria-sort="descending"] { background: #e8f0fe; }
+.pagination button:disabled, #jobsTable th button:disabled { cursor: default; opacity: .5; }
+.pagination button:focus-visible, #jobsTable th button:focus-visible { outline: 2px solid #1a73e8; outline-offset: 3px; }

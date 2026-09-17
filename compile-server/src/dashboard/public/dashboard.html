@@ -2,6 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard de Compilação</title>
 <link rel="stylesheet" href="dashboard.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -12,6 +13,16 @@
   <button id="logoutBtn">Sair</button>
 </header>
 <main>
+  <form id="filtersForm" class="filters">
+    <div><label for="startDate">Data inicial</label><input type="date" id="startDate" name="startDate"></div>
+    <div><label for="endDate">Data final</label><input type="date" id="endDate" name="endDate"></div>
+    <div><label for="machineName">Máquina (machineName)</label><input type="search" id="machineName" name="machineName" placeholder="Parte do nome"></div>
+    <div><label for="dbType">Banco</label><input type="search" id="dbType" name="dbType" placeholder="Nome do banco (dbType)"></div>
+    <button type="submit">Pesquisar</button>
+    <button type="reset" class="secondary">Limpar filtros</button>
+    <small>Datas no horário de São Paulo. Filtros aplicados aos indicadores, gráficos e tabelas.</small>
+  </form>
+  <p id="dashboardMessage" role="status" aria-live="polite"></p>
   <section class="cards">
     <div class="card"><span id="totalJobs">-</span><label>Total de Jobs</label></div>
     <div class="card"><span id="totalFiles">-</span><label>Arquivos Enviados</label></div>
@@ -23,6 +34,9 @@
     <div class="chart-box"><h2>Jobs por Status</h2><canvas id="statusChart"></canvas></div>
     <div class="chart-box"><h2>Jobs por Máquina</h2><canvas id="machineChart"></canvas></div>
     <div class="chart-box"><h2>Bancos mais Utilizados</h2><canvas id="databasesChart"></canvas></div>
+    <div class="chart-box"><h2>Jobs por Repositório</h2><canvas id="repositoryChart"></canvas>
+      <div class="table-scroll repository-counts"><table id="repositoryTable"><thead><tr><th>Repositório</th><th>Quantidade</th></tr></thead><tbody></tbody></table></div>
+    </div>
   </section>
   <section>
     <h2>Jobs por Status</h2>
@@ -33,8 +47,18 @@
     <table id="machineTable"><thead><tr><th>Máquina</th><th>Quantidade</th></tr></thead><tbody></tbody></table>
   </section>
   <section>
-    <h2>Jobs Recentes</h2>
-    <table id="jobsTable"><thead><tr><th>Job ID</th><th>Status</th><th>Máquina</th><th>IP</th><th>Arquivos</th><th>DB</th><th>Criado em</th></tr></thead><tbody></tbody></table>
+    <h2>Jobs de Compilação</h2>
+    <p>Clique no título de uma coluna para alternar entre ordem crescente e decrescente.</p>
+    <div class="table-scroll"><table id="jobsTable"><thead><tr><th scope="col" aria-sort="none"><button type="button" data-sort="jobId">Job ID <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" data-sort="status">Status <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" data-sort="machineName">Máquina <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" data-sort="ip">IP <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" data-sort="filesCount">Arquivos <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" data-sort="dbType">DB <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" data-sort="repository">Repositório <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="none"><button type="button" data-sort="durationMs">Tempo de execução <span aria-hidden="true">↕</span></button></th><th scope="col" aria-sort="descending"><button type="button" data-sort="createdAt">Criado em <span aria-hidden="true">↓</span></button></th></tr></thead><tbody></tbody></table></div>
+    <nav class="pagination" aria-label="Paginação dos jobs">
+      <label for="pageSize">Itens por página</label>
+      <select id="pageSize"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
+      <span id="pageInfo" role="status" aria-live="polite">Carregando…</span>
+      <button type="button" id="firstPage" disabled>Primeira</button>
+      <button type="button" id="previousPage" disabled>Anterior</button>
+      <button type="button" id="nextPage" disabled>Próxima</button>
+      <button type="button" id="lastPage" disabled>Última</button>
+    </nav>
   </section>
 </main>
 <script src="dashboard.js"></script>
