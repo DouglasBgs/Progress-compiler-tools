@@ -39,6 +39,7 @@ class SidebarMenuProvider implements vscode.TreeDataProvider<SidebarMenuItem> {
     private readonly sections: SidebarMenuItem[] = [
         createSection('Compilação', 'run-all', [
             createItem('Compilar Arquivo Atual', 'abl-linter.compileRemote', 'Compilar o arquivo ativo no editor', 'run-above'),
+            createItem('Compilar Arquivos Abertos', 'abl-linter.compileOpenFiles', 'Compilar todos os arquivos abertos no editor (F6)', 'run-all'),
             createItem('Selecionar Arquivos e Compilar', 'abl-linter.selectFilesAndCompile', 'Selecionar arquivos para enviar para compilação remota', 'files'),
             createItem('Selecionar Pastas e Compilar', 'abl-linter.selectFoldersAndCompile', 'Selecionar pastas inteiras para envio em lote (ex: EMS2, FONDATION)', 'folder-active'),
         ]),

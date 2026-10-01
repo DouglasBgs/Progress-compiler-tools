@@ -42,6 +42,7 @@
     "activationEvents": [
       "onLanguage:abl",
       "onCommand:abl-linter.compileRemote",
+      "onCommand:abl-linter.compileOpenFiles",
       "onCommand:abl-linter.manageServers",
       "onCommand:abl-linter.addServer",
       "onCommand:abl-linter.removeServer",
@@ -60,6 +61,12 @@
         "command": "abl-linter.compileRemote",
         "title": "ABL Compilar",
         "icon": "$(run-above)",
+        "category": "OpenEdge ABL"
+      },
+      {
+        "command": "abl-linter.compileOpenFiles",
+        "title": "ABL Compilar Arquivos Abertos",
+        "icon": "$(run-all)",
         "category": "OpenEdge ABL"
       },
       {
@@ -246,6 +253,11 @@
         "command": "abl-linter.compileRemote",
         "key": "f5",
         "when": "editorLangId == 'abl' || resourceExtname == .p || resourceExtname == .py || resourceExtname == .w || resourceExtname == .cls"
+      },
+      {
+        "command": "abl-linter.compileOpenFiles",
+        "key": "f6",
+        "when": "editorTextFocus"
       }
     ]
   },

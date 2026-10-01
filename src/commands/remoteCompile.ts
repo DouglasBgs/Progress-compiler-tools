@@ -775,5 +775,29 @@ export function registerRemoteCompileCommand(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(disposable);
+    const openFilesDisposable = vscode.commands.registerCommand(
+        'abl-linter.compileOpenFiles',
+        async () => {
+            const uris = vscode.window.tabGroups.all.flatMap(group =>
+                group.tabs.flatMap(tab => {
+                    if (tab.input instanceof vscode.TabInputText) {
+                        return [tab.input.uri];
+                    }
+                    if (tab.input instanceof vscode.TabInputTextDiff) {
+                        return [tab.input.original, tab.input.modified];
+                    }
+                    return [];
+                })
+            );
+
+            if (uris.length === 0) {
+                vscode.window.showWarningMessage('Nenhum arquivo aberto para compilação remota.');
+                return;
+            }
+
+            await vscode.commands.executeCommand('abl-linter.compileRemote', uris);
+        }
+    );
+
+    context.subscriptions.push(disposable, openFilesDisposable);
 }
