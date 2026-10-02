@@ -1,4 +1,4 @@
-# OpenEdge ABL Remote Compiler
+# Progress Compiler Tools
 
 Extensão para Visual Studio Code que oferece compilação remota de arquivos **OpenEdge ABL** (Progress) `.p`, `.py`, `.w`, `.cls` e `.i` diretamente do editor.
 
@@ -28,6 +28,7 @@ Extensão para Visual Studio Code que oferece compilação remota de arquivos **
 ### 🔨 Compilação Remota
 - Compilação de um ou **múltiplos arquivos** selecionados no Explorer ou Git (Source Control)
 - Acionamento via menu de contexto (clique direito) ou tecla **F5**
+- Compilação em lote de todos os arquivos abertos no editor pela tecla **F6** ou pelo menu lateral da extensão
 - Suporte a quatro tipos de compilação/bancos de dados: **Progress**, **SQL Server**, **Oracle** e **Patch**
 - Envio dos fontes em Base64 ao servidor — **sem dependência de drives de rede** no cliente
 - Retorno dos binários `.r` compilados diretamente para o VSCode
@@ -77,6 +78,7 @@ Ao iniciar a compilação, você escolhe primeiro onde salvar os binários. Caso
 - Container **ABL** na barra lateral do VSCode (Activity Bar)
 - Ações rápidas no menu da extensão:
   - Selecionar Arquivos e Compilar
+  - Compilar Arquivos Abertos
   - Ajustar Configurações
   - Adicionar Servidor
   - Excluir Servidor
@@ -461,7 +463,12 @@ A barra de status inferior exibe em tempo real o repositório/pasta ativa detect
 1. Com um arquivo ABL aberto e focado no editor, pressione **`F5`**
 2. O arquivo atual será enviado para compilação
 
-#### Opção 3: Menu Lateral (Selecionar Arquivos e Compilar)
+#### Opção 3: Tecla de Atalho F6
+
+1. Com o editor focado, pressione **`F6`**
+2. Todos os arquivos abertos nas abas do editor serão enviados em um único lote para compilação
+
+#### Opção 4: Menu Lateral (Selecionar Arquivos e Compilar)
 
 1. Abra o menu lateral da extensão em **ABL**
 2. Clique em **Selecionar Arquivos e Compilar**
@@ -719,6 +726,7 @@ Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.progress-compiler-tool
 | Paleta de Comandos | ID interno | Descrição |
 |--------------------|------------|-----------|
 | `OpenEdge ABL: ABL Compilar` | `abl-linter.compileRemote` | Compila arquivo(s) selecionado(s) ou aberto no editor |
+| `OpenEdge ABL: ABL Compilar Arquivos Abertos` | `abl-linter.compileOpenFiles` | Compila em lote todos os arquivos abertos nas abas do editor |
 | `OpenEdge ABL: Gerenciar Servidores de Destino` | `abl-linter.manageServers` | Abre o gerenciador de servidores |
 | `OpenEdge ABL: Adicionar Servidor de Destino` | `abl-linter.addServer` | Abre diretamente o fluxo de adição de servidor |
 | `OpenEdge ABL: Excluir Servidor de Destino` | `abl-linter.removeServer` | Abre diretamente o fluxo de remoção de servidor |
@@ -733,8 +741,9 @@ Windows: %APPDATA%\Code\User\globalStorage\douglasbarbosa.progress-compiler-tool
 | Atalho | Ação | Condição |
 |--------|------|----------|
 | `F5` | Compilar arquivo ABL ativo | Editor com arquivo `.p`, `.w` ou `.cls` focado |
+| `F6` | Compilar todos os arquivos abertos no editor | Editor focado |
 
-> Para personalizar: `Ctrl+K Ctrl+S` → pesquise por `abl-linter.compileRemote`
+> Para personalizar: `Ctrl+K Ctrl+S` → pesquise por `abl-linter.compileRemote` ou `abl-linter.compileOpenFiles`
 
 ---
 
