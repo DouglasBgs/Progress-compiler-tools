@@ -143,7 +143,8 @@
       "ablLinter": [
         {
           "id": "ablLinterMenu",
-          "name": "Menu"
+          "name": "Menu",
+          "icon": "$(menu)"
         }
       ]
     },
@@ -245,6 +246,12 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Identifica automaticamente o repositório/compilador (EMS2, EMS5, FONDATION, CRM, HCM, GP, etc.) com base na pasta raiz que precede `progress/src/` ou `src/`."
+        },
+        "abl-linter.shortcuts.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Oferece atalhos de estruturas Progress ABL nas sugestões do editor."
         }
       }
     },

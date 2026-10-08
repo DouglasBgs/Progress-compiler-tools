@@ -16,6 +16,7 @@ import {
 import { registerLogAnalyzerCommand } from './commands/logAnalyzer';
 import { registerAblIncludeProviders } from './providers/ablIncludeProvider';
 import { registerAblProcedureProviders } from './providers/ablProcedureProvider';
+import { registerAblShortcutProvider } from './providers/ablShortcutProvider';
 import { registerStatusBar } from './views/statusBar';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -51,6 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Registra providers de procedures ABL (definição, hover com parâmetros)
     registerAblProcedureProviders(context);
+    registerAblShortcutProvider(context);
 }
 
 export async function getOrPromptCompilerUrl(): Promise<string> {
@@ -85,4 +87,3 @@ export async function getOrPromptCompilerUrl(): Promise<string> {
 export function deactivate() {
     // noop
 }
-

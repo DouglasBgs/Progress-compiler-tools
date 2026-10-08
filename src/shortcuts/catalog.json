@@ -1,0 +1,1483 @@
+[
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defvar",
+      "define variable"
+    ],
+    "description": "Variável com tipo e NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:nome} AS ${2|CHARACTER,INTEGER,INT64,DECIMAL,LOGICAL,DATE,DATETIME,DATETIME-TZ,HANDLE,LONGCHAR,MEMPTR,RAW|} NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defchar"
+    ],
+    "description": "Variável CHARACTER com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:cTexto} AS CHARACTER NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defint"
+    ],
+    "description": "Variável INTEGER com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:iNumero} AS INTEGER NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defint64"
+    ],
+    "description": "Variável INT64 com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:iNumero} AS INT64 NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defdec"
+    ],
+    "description": "Variável DECIMAL com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:dValor} AS DECIMAL NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "deflog"
+    ],
+    "description": "Variável LOGICAL com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:lOk} AS LOGICAL NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defdate"
+    ],
+    "description": "Variável DATE com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:dtData} AS DATE NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defdatetime"
+    ],
+    "description": "Variável DATETIME com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:dtInstante} AS DATETIME NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defdatetimetz"
+    ],
+    "description": "Variável DATETIME-TZ com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:dtInstante} AS DATETIME-TZ NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defhandle"
+    ],
+    "description": "Variável HANDLE com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:hObjeto} AS HANDLE NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "deflongchar"
+    ],
+    "description": "Variável LONGCHAR com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:lcTexto} AS LONGCHAR NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defmemptr"
+    ],
+    "description": "Variável MEMPTR com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:mDados} AS MEMPTR NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defraw"
+    ],
+    "description": "Variável RAW com NO-UNDO.",
+    "body": [
+      "DEFINE VARIABLE ${1:rDados} AS RAW NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "deflike"
+    ],
+    "description": "Variável com tipo herdado de um campo.",
+    "body": [
+      "DEFINE VARIABLE ${1:nome} LIKE ${2:tabela.campo} NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "definitial"
+    ],
+    "description": "Variável com valor inicial.",
+    "body": [
+      "DEFINE VARIABLE ${1:iContador} AS ${2:INTEGER} INITIAL ${3:0} NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Variáveis",
+    "prefixes": [
+      "defextent"
+    ],
+    "description": "Variável array com EXTENT.",
+    "body": [
+      "DEFINE VARIABLE ${1:cValores} AS ${2:CHARACTER} EXTENT ${3:10} NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Parâmetros",
+    "prefixes": [
+      "definput",
+      "define input parameter"
+    ],
+    "description": "Parâmetro INPUT.",
+    "body": [
+      "DEFINE INPUT PARAMETER ${1:pValor} AS ${2:CHARACTER} NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Parâmetros",
+    "prefixes": [
+      "defoutput",
+      "define output parameter"
+    ],
+    "description": "Parâmetro OUTPUT.",
+    "body": [
+      "DEFINE OUTPUT PARAMETER ${1:pValor} AS ${2:CHARACTER} NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Parâmetros",
+    "prefixes": [
+      "definout",
+      "define input-output parameter"
+    ],
+    "description": "Parâmetro INPUT-OUTPUT.",
+    "body": [
+      "DEFINE INPUT-OUTPUT PARAMETER ${1:pValor} AS ${2:CHARACTER} NO-UNDO.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Parâmetros",
+    "prefixes": [
+      "paramtable"
+    ],
+    "description": "Parâmetro de temp-table já definida.",
+    "body": [
+      "DEFINE ${1|INPUT,OUTPUT,INPUT-OUTPUT|} PARAMETER TABLE FOR ${2:ttDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Parâmetros",
+    "prefixes": [
+      "paramdataset"
+    ],
+    "description": "Parâmetro de dataset já definido.",
+    "body": [
+      "DEFINE ${1|INPUT,OUTPUT,INPUT-OUTPUT|} PARAMETER DATASET FOR ${2:dsDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "if"
+    ],
+    "description": "Condição com bloco.",
+    "body": [
+      "IF ${1:condicao} THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "ifelse"
+    ],
+    "description": "Condição com alternativa.",
+    "body": [
+      "IF ${1:condicao} THEN DO:",
+      "    ${2:/* verdadeiro */}",
+      "END.",
+      "ELSE DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "case"
+    ],
+    "description": "Seleção CASE com alternativa padrão.",
+    "body": [
+      "CASE ${1:expressao}:",
+      "    WHEN ${2:valor} THEN DO:",
+      "        $0",
+      "    END.",
+      "    OTHERWISE DO:",
+      "        /* demais valores */",
+      "    END.",
+      "END CASE."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "when"
+    ],
+    "description": "Alternativa dentro de CASE.",
+    "body": [
+      "WHEN ${1:valor} THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "otherwise"
+    ],
+    "description": "Alternativa padrão dentro de CASE.",
+    "body": [
+      "OTHERWISE DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "do"
+    ],
+    "description": "Bloco simples.",
+    "body": [
+      "DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "dowhile",
+      "while",
+      "do while"
+    ],
+    "description": "Laço enquanto uma condição for verdadeira.",
+    "body": [
+      "DO WHILE ${1:condicao}:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "dofor",
+      "do to"
+    ],
+    "description": "Laço por contador; declare o contador antes.",
+    "body": [
+      "DO ${1:iContador} = ${2:1} TO ${3:10} BY ${4:1}:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "repeat"
+    ],
+    "description": "Repetição; inclua condição de saída ou LEAVE.",
+    "body": [
+      "REPEAT:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "repeatwhile",
+      "repeat while"
+    ],
+    "description": "Repetição condicional.",
+    "body": [
+      "REPEAT WHILE ${1:condicao}:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "leave"
+    ],
+    "description": "Sai do laço atual.",
+    "body": [
+      "LEAVE.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Condições e laços",
+    "prefixes": [
+      "next"
+    ],
+    "description": "Avança para a próxima iteração.",
+    "body": [
+      "NEXT.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "foreach",
+      "for each"
+    ],
+    "description": "Percorre registros de leitura.",
+    "body": [
+      "FOR EACH ${1:tabela} NO-LOCK",
+      "    WHERE $1.${2:campo} = ${3:valor}:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "forfirst",
+      "for first"
+    ],
+    "description": "Primeiro registro segundo o índice; BY não escolhe o primeiro após ordenar.",
+    "body": [
+      "FOR FIRST ${1:tabela} NO-LOCK",
+      "    WHERE $1.${2:campo} = ${3:valor}:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "forlast",
+      "for last"
+    ],
+    "description": "Último registro segundo o índice; BY não escolhe o último após ordenar.",
+    "body": [
+      "FOR LAST ${1:tabela} NO-LOCK",
+      "    WHERE $1.${2:campo} = ${3:valor}:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "forby"
+    ],
+    "description": "Leitura ordenada por campo.",
+    "body": [
+      "FOR EACH ${1:tabela} NO-LOCK",
+      "    WHERE ${2:TRUE}",
+      "    BY $1.${3:campo}:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "forbreak",
+      "for each break"
+    ],
+    "description": "Agrupamento com FIRST-OF e LAST-OF.",
+    "body": [
+      "FOR EACH ${1:tabela} NO-LOCK",
+      "    BREAK BY $1.${2:campo}:",
+      "    IF FIRST-OF($1.$2) THEN DO:",
+      "        ${3:/* início do grupo */}",
+      "    END.",
+      "    $0",
+      "    IF LAST-OF($1.$2) THEN DO:",
+      "        /* fim do grupo */",
+      "    END.",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "forjoin"
+    ],
+    "description": "Relaciona duas tabelas com condição explícita.",
+    "body": [
+      "FOR EACH ${1:tabelaPai} NO-LOCK,",
+      "    EACH ${2:tabelaFilha} NO-LOCK",
+      "    WHERE $2.${3:chave} = $1.$3:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "find"
+    ],
+    "description": "Busca sem bloqueio e verifica disponibilidade.",
+    "body": [
+      "FIND ${1:tabela}",
+      "    WHERE $1.${2:campo} = ${3:valor}",
+      "    NO-LOCK NO-ERROR.",
+      "IF AVAILABLE $1 THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "findfirst",
+      "find first"
+    ],
+    "description": "Busca sem bloqueio e verifica disponibilidade.",
+    "body": [
+      "FIND FIRST ${1:tabela}",
+      "    WHERE $1.${2:campo} = ${3:valor}",
+      "    NO-LOCK NO-ERROR.",
+      "IF AVAILABLE $1 THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "findlast",
+      "find last"
+    ],
+    "description": "Busca sem bloqueio e verifica disponibilidade.",
+    "body": [
+      "FIND LAST ${1:tabela}",
+      "    WHERE $1.${2:campo} = ${3:valor}",
+      "    NO-LOCK NO-ERROR.",
+      "IF AVAILABLE $1 THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "findnext",
+      "find next"
+    ],
+    "description": "Busca sem bloqueio e verifica disponibilidade.",
+    "body": [
+      "FIND NEXT ${1:tabela}",
+      "    WHERE $1.${2:campo} = ${3:valor}",
+      "    NO-LOCK NO-ERROR.",
+      "IF AVAILABLE $1 THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "findprev",
+      "find prev"
+    ],
+    "description": "Busca sem bloqueio e verifica disponibilidade.",
+    "body": [
+      "FIND PREV ${1:tabela}",
+      "    WHERE $1.${2:campo} = ${3:valor}",
+      "    NO-LOCK NO-ERROR.",
+      "IF AVAILABLE $1 THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "ifavail",
+      "if available"
+    ],
+    "description": "Verifica disponibilidade do buffer.",
+    "body": [
+      "IF AVAILABLE ${1:tabela} THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: consultas",
+    "prefixes": [
+      "canfind",
+      "can-find"
+    ],
+    "description": "Testa existência sem carregar o registro no buffer.",
+    "body": [
+      "IF CAN-FIND(FIRST ${1:tabela}",
+      "    WHERE $1.${2:campo} = ${3:valor}) THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "create"
+    ],
+    "description": "Cria registro no buffer informado.",
+    "body": [
+      "CREATE ${1:tabela}.",
+      "ASSIGN",
+      "    $1.${2:campo} = ${3:valor}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "assign"
+    ],
+    "description": "Atribui valores.",
+    "body": [
+      "ASSIGN",
+      "    ${1:destino} = ${2:valor}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "delete"
+    ],
+    "description": "Exclui registro disponível; requer bloqueio de escrita.",
+    "body": [
+      "IF AVAILABLE ${1:tabela} THEN",
+      "    DELETE $1.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "validate"
+    ],
+    "description": "Valida registro e índices.",
+    "body": [
+      "VALIDATE ${1:tabela}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "release"
+    ],
+    "description": "Libera o buffer; bloqueios dependem do escopo da transação.",
+    "body": [
+      "RELEASE ${1:tabela}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "findlock"
+    ],
+    "description": "Busca para alteração sem aguardar bloqueios; trata indisponibilidade.",
+    "body": [
+      "FIND FIRST ${1:tabela}",
+      "    WHERE $1.${2:campo} = ${3:valor}",
+      "    EXCLUSIVE-LOCK NO-WAIT NO-ERROR.",
+      "IF LOCKED $1 THEN DO:",
+      "    ${4:/* registro bloqueado */}",
+      "END.",
+      "ELSE IF AVAILABLE $1 THEN DO:",
+      "    $0",
+      "END.",
+      "ELSE DO:",
+      "    /* registro não encontrado ou erro: consultar ERROR-STATUS */",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "iflocked"
+    ],
+    "description": "Verifica registro bloqueado após FIND NO-WAIT.",
+    "body": [
+      "IF LOCKED ${1:tabela} THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "transaction",
+      "do transaction"
+    ],
+    "description": "Transação com propagação de erro.",
+    "body": [
+      "DO TRANSACTION ON ERROR UNDO, THROW:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "onerror"
+    ],
+    "description": "Bloco com propagação de erro.",
+    "body": [
+      "DO ON ERROR UNDO, THROW:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "undo"
+    ],
+    "description": "Desfaz bloco e sai dele.",
+    "body": [
+      "UNDO, LEAVE.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "defbuffer",
+      "define buffer"
+    ],
+    "description": "Buffer alternativo para tabela.",
+    "body": [
+      "DEFINE BUFFER ${1:bTabela} FOR ${2:tabela}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "buffercopy",
+      "buffer-copy"
+    ],
+    "description": "Copia campos compatíveis entre buffers.",
+    "body": [
+      "BUFFER-COPY ${1:origem} TO ${2:destino}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Banco de dados: escrita e transações",
+    "prefixes": [
+      "buffercompare",
+      "buffer-compare"
+    ],
+    "description": "Compara buffers; declare variável LOGICAL para resultado.",
+    "body": [
+      "BUFFER-COMPARE ${1:origem} TO ${2:destino}",
+      "    SAVE RESULT IN ${3:lIguais}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Temp-tables e datasets",
+    "prefixes": [
+      "deftt",
+      "define temp-table"
+    ],
+    "description": "Temp-table com campo e índice.",
+    "body": [
+      "DEFINE TEMP-TABLE ${1:ttDados} NO-UNDO",
+      "    FIELD ${2:id} AS ${3:INTEGER}",
+      "    INDEX ${4:idxPrincipal} IS PRIMARY UNIQUE $2.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Temp-tables e datasets",
+    "prefixes": [
+      "defttlike"
+    ],
+    "description": "Temp-table baseada em tabela existente.",
+    "body": [
+      "DEFINE TEMP-TABLE ${1:ttDados} NO-UNDO LIKE ${2:tabela}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Temp-tables e datasets",
+    "prefixes": [
+      "field"
+    ],
+    "description": "Campo dentro de DEFINE TEMP-TABLE; pontuação pertence à definição.",
+    "body": [
+      "FIELD ${1:campo} AS ${2:CHARACTER}",
+      "$0"
+    ]
+  },
+  {
+    "category": "Temp-tables e datasets",
+    "prefixes": [
+      "index"
+    ],
+    "description": "Índice dentro de DEFINE TEMP-TABLE; ponto encerra a definição.",
+    "body": [
+      "INDEX ${1:idxPrincipal} IS PRIMARY UNIQUE ${2:campo}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Temp-tables e datasets",
+    "prefixes": [
+      "emptytt",
+      "empty temp-table"
+    ],
+    "description": "Esvazia temp-table.",
+    "body": [
+      "EMPTY TEMP-TABLE ${1:ttDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Temp-tables e datasets",
+    "prefixes": [
+      "defdataset",
+      "define dataset"
+    ],
+    "description": "Dataset para temp-table já definida.",
+    "body": [
+      "DEFINE DATASET ${1:dsDados} FOR ${2:ttDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "defquery",
+      "define query"
+    ],
+    "description": "Query estática para buffer existente.",
+    "body": [
+      "DEFINE QUERY ${1:qDados} FOR ${2:tabela} SCROLLING.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "openquery",
+      "open query"
+    ],
+    "description": "Abre query estática.",
+    "body": [
+      "OPEN QUERY ${1:qDados} FOR EACH ${2:tabela} NO-LOCK",
+      "    WHERE ${3:TRUE}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "queryloop"
+    ],
+    "description": "Ciclo completo de query estática.",
+    "body": [
+      "DEFINE QUERY ${1:qDados} FOR ${2:tabela}.",
+      "OPEN QUERY $1 FOR EACH $2 NO-LOCK.",
+      "GET FIRST $1.",
+      "DO WHILE NOT QUERY-OFF-END(\"$1\"):",
+      "    $0",
+      "    GET NEXT $1.",
+      "END.",
+      "CLOSE QUERY $1."
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "getfirst",
+      "get first"
+    ],
+    "description": "Primeiro registro da query.",
+    "body": [
+      "GET FIRST ${1:qDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "getnext",
+      "get next"
+    ],
+    "description": "Próximo registro da query.",
+    "body": [
+      "GET NEXT ${1:qDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "getprev",
+      "get prev"
+    ],
+    "description": "Registro anterior da query.",
+    "body": [
+      "GET PREV ${1:qDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "getlast",
+      "get last"
+    ],
+    "description": "Último registro da query.",
+    "body": [
+      "GET LAST ${1:qDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "closequery",
+      "close query"
+    ],
+    "description": "Fecha query.",
+    "body": [
+      "CLOSE QUERY ${1:qDados}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Queries",
+    "prefixes": [
+      "dynamicquery"
+    ],
+    "description": "Query dinâmica com limpeza do objeto em FINALLY.",
+    "body": [
+      "DEFINE VARIABLE ${1:hQuery} AS HANDLE NO-UNDO.",
+      "DO ON ERROR UNDO, THROW:",
+      "    CREATE QUERY $1.",
+      "    $1:SET-BUFFERS(BUFFER ${2:tabela}:HANDLE).",
+      "    $1:QUERY-PREPARE(\"FOR EACH $2 NO-LOCK\").",
+      "    $1:QUERY-OPEN().",
+      "    $1:GET-FIRST().",
+      "    DO WHILE NOT $1:QUERY-OFF-END:",
+      "        $0",
+      "        $1:GET-NEXT().",
+      "    END.",
+      "    FINALLY:",
+      "        IF VALID-HANDLE($1) THEN",
+      "            DELETE OBJECT $1.",
+      "    END FINALLY.",
+      "END."
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "procedure"
+    ],
+    "description": "Procedure interna com parâmetro.",
+    "body": [
+      "PROCEDURE ${1:nome}:",
+      "    DEFINE INPUT PARAMETER ${2:pValor} AS ${3:CHARACTER} NO-UNDO.",
+      "    $0",
+      "END PROCEDURE."
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "function"
+    ],
+    "description": "Função com parâmetro e retorno.",
+    "body": [
+      "FUNCTION ${1:nome} RETURNS ${2:LOGICAL}",
+      "    (INPUT ${3:pValor} AS ${4:CHARACTER}):",
+      "    $0",
+      "    RETURN ${5:TRUE}.",
+      "END FUNCTION."
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "forward"
+    ],
+    "description": "Declaração antecipada de função.",
+    "body": [
+      "FUNCTION ${1:nome} RETURNS ${2:LOGICAL}",
+      "    (INPUT ${3:pValor} AS ${4:CHARACTER}) FORWARD.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "run"
+    ],
+    "description": "Executa programa ou procedure.",
+    "body": [
+      "RUN ${1:programa.p} (${2:INPUT valor}).",
+      "$0"
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "runpersistent"
+    ],
+    "description": "Executa procedure persistente; libere handle ao terminar.",
+    "body": [
+      "DEFINE VARIABLE ${1:hProcedure} AS HANDLE NO-UNDO.",
+      "RUN ${2:programa.p} PERSISTENT SET $1.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "runin"
+    ],
+    "description": "Executa rotina em procedure persistente.",
+    "body": [
+      "RUN ${1:rotina} IN ${2:hProcedure} (${3:INPUT valor}).",
+      "$0"
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "deleteprocedure"
+    ],
+    "description": "Libera procedure persistente válida.",
+    "body": [
+      "IF VALID-HANDLE(${1:hProcedure}) THEN",
+      "    DELETE PROCEDURE $1.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "return"
+    ],
+    "description": "Retorna valor de função; adapte ao tipo declarado.",
+    "body": [
+      "RETURN ${1:valor}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Rotinas",
+    "prefixes": [
+      "returnerror",
+      "return error"
+    ],
+    "description": "Retorna erro ao chamador.",
+    "body": [
+      "RETURN ERROR ${1:\"mensagem\"}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Classes",
+    "prefixes": [
+      "class"
+    ],
+    "description": "Classe ABL; ajuste nome e caminho do arquivo .cls.",
+    "body": [
+      "CLASS ${1:MinhaClasse}:",
+      "    CONSTRUCTOR PUBLIC $1():",
+      "        SUPER().",
+      "    END CONSTRUCTOR.",
+      "    $0",
+      "END CLASS."
+    ]
+  },
+  {
+    "category": "Classes",
+    "prefixes": [
+      "constructor"
+    ],
+    "description": "Construtor dentro de classe.",
+    "body": [
+      "CONSTRUCTOR PUBLIC ${1:MinhaClasse}():",
+      "    SUPER().",
+      "    $0",
+      "END CONSTRUCTOR."
+    ]
+  },
+  {
+    "category": "Classes",
+    "prefixes": [
+      "destructor"
+    ],
+    "description": "Destrutor dentro de classe.",
+    "body": [
+      "DESTRUCTOR PUBLIC ${1:MinhaClasse}():",
+      "    $0",
+      "END DESTRUCTOR."
+    ]
+  },
+  {
+    "category": "Classes",
+    "prefixes": [
+      "method"
+    ],
+    "description": "Método sem retorno dentro de classe.",
+    "body": [
+      "METHOD PUBLIC VOID ${1:Executar}(INPUT ${2:pValor} AS ${3:CHARACTER}):",
+      "    $0",
+      "END METHOD."
+    ]
+  },
+  {
+    "category": "Classes",
+    "prefixes": [
+      "property"
+    ],
+    "description": "Propriedade com acesso de leitura e escrita.",
+    "body": [
+      "DEFINE PUBLIC PROPERTY ${1:Nome} AS ${2:CHARACTER} NO-UNDO",
+      "    GET.",
+      "    SET.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Classes",
+    "prefixes": [
+      "using"
+    ],
+    "description": "Importa namespace ou classe.",
+    "body": [
+      "USING ${1:Progress.Lang.*}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Classes",
+    "prefixes": [
+      "new"
+    ],
+    "description": "Instancia classe em variável previamente declarada.",
+    "body": [
+      "${1:oObjeto} = NEW ${2:MinhaClasse}(${3}).",
+      "$0"
+    ]
+  },
+  {
+    "category": "Erros",
+    "prefixes": [
+      "catch"
+    ],
+    "description": "CATCH dentro de bloco com tratamento de erro.",
+    "body": [
+      "CATCH ${1:oErro} AS Progress.Lang.Error:",
+      "    $0",
+      "    UNDO, THROW $1.",
+      "END CATCH."
+    ]
+  },
+  {
+    "category": "Erros",
+    "prefixes": [
+      "finally"
+    ],
+    "description": "Limpeza no fim de bloco elegível, após os CATCHs.",
+    "body": [
+      "FINALLY:",
+      "    $0",
+      "END FINALLY."
+    ]
+  },
+  {
+    "category": "Erros",
+    "prefixes": [
+      "throw"
+    ],
+    "description": "Lança erro de aplicação.",
+    "body": [
+      "UNDO, THROW NEW Progress.Lang.AppError(${1:\"mensagem\"}, ${2:0}).",
+      "$0"
+    ]
+  },
+  {
+    "category": "Erros",
+    "prefixes": [
+      "errorstatus"
+    ],
+    "description": "Verifica erros e mensagens após operação NO-ERROR.",
+    "body": [
+      "IF ERROR-STATUS:ERROR OR ERROR-STATUS:NUM-MESSAGES > 0 THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Erros",
+    "prefixes": [
+      "errormessages"
+    ],
+    "description": "Percorre mensagens de ERROR-STATUS após NO-ERROR.",
+    "body": [
+      "DEFINE VARIABLE ${1:iMensagem} AS INTEGER NO-UNDO.",
+      "DO $1 = 1 TO ERROR-STATUS:NUM-MESSAGES:",
+      "    MESSAGE ERROR-STATUS:GET-MESSAGE($1) VIEW-AS ALERT-BOX ERROR.",
+      "END.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "defstream",
+      "define stream"
+    ],
+    "description": "Declara stream nomeado.",
+    "body": [
+      "DEFINE STREAM ${1:sArquivo}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "inputfrom",
+      "input from"
+    ],
+    "description": "Entrada por arquivo com fechamento.",
+    "body": [
+      "INPUT FROM VALUE(${1:cArquivo}).",
+      "$0",
+      "INPUT CLOSE."
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "outputto",
+      "output to"
+    ],
+    "description": "Saída por arquivo com fechamento.",
+    "body": [
+      "OUTPUT TO VALUE(${1:cArquivo}).",
+      "$0",
+      "OUTPUT CLOSE."
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "inputstream"
+    ],
+    "description": "Entrada usando stream nomeado.",
+    "body": [
+      "INPUT STREAM ${1:sArquivo} FROM VALUE(${2:cArquivo}).",
+      "$0",
+      "INPUT STREAM $1 CLOSE."
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "outputstream"
+    ],
+    "description": "Saída usando stream nomeado.",
+    "body": [
+      "OUTPUT STREAM ${1:sArquivo} TO VALUE(${2:cArquivo}).",
+      "$0",
+      "OUTPUT STREAM $1 CLOSE."
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "import"
+    ],
+    "description": "Importa campos delimitados da entrada atual.",
+    "body": [
+      "IMPORT DELIMITER ${1:\";\"} ${2:variavel}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "importline"
+    ],
+    "description": "Importa uma linha inteira.",
+    "body": [
+      "IMPORT UNFORMATTED ${1:cLinha}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "export"
+    ],
+    "description": "Exporta campos delimitados para saída atual.",
+    "body": [
+      "EXPORT DELIMITER ${1:\";\"} ${2:variavel}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "put",
+      "put unformatted"
+    ],
+    "description": "Escreve texto sem formatação e quebra de linha.",
+    "body": [
+      "PUT UNFORMATTED ${1:cTexto} SKIP.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "inputclose",
+      "input close"
+    ],
+    "description": "Fecha entrada padrão.",
+    "body": [
+      "INPUT CLOSE.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Arquivos e streams",
+    "prefixes": [
+      "outputclose",
+      "output close"
+    ],
+    "description": "Fecha saída padrão.",
+    "body": [
+      "OUTPUT CLOSE.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Mensagens e interface",
+    "prefixes": [
+      "message"
+    ],
+    "description": "Mensagem informativa.",
+    "body": [
+      "MESSAGE ${1:\"mensagem\"}",
+      "    VIEW-AS ALERT-BOX INFO BUTTONS OK.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Mensagens e interface",
+    "prefixes": [
+      "confirm"
+    ],
+    "description": "Confirmação com resposta LOGICAL.",
+    "body": [
+      "DEFINE VARIABLE ${1:lConfirmado} AS LOGICAL NO-UNDO.",
+      "MESSAGE ${2:\"Confirma?\"}",
+      "    VIEW-AS ALERT-BOX QUESTION BUTTONS YES-NO UPDATE $1.",
+      "IF $1 THEN DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Mensagens e interface",
+    "prefixes": [
+      "display"
+    ],
+    "description": "Exibe campos.",
+    "body": [
+      "DISPLAY ${1:campos}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Mensagens e interface",
+    "prefixes": [
+      "update"
+    ],
+    "description": "Solicita edição de campos.",
+    "body": [
+      "UPDATE ${1:campos}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Mensagens e interface",
+    "prefixes": [
+      "enable"
+    ],
+    "description": "Habilita widgets em frame existente.",
+    "body": [
+      "ENABLE ${1:widgets} WITH FRAME ${2:fPrincipal}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Mensagens e interface",
+    "prefixes": [
+      "waitfor",
+      "wait-for"
+    ],
+    "description": "Aguarda evento de widget existente.",
+    "body": [
+      "WAIT-FOR ${1:CLOSE} OF ${2:THIS-PROCEDURE}.",
+      "$0"
+    ]
+  },
+  {
+    "category": "Mensagens e interface",
+    "prefixes": [
+      "on"
+    ],
+    "description": "Trigger de evento em widget existente.",
+    "body": [
+      "ON ${1:CHOOSE} OF ${2:btnExecutar} DO:",
+      "    $0",
+      "END."
+    ]
+  },
+  {
+    "category": "Includes e preprocessador",
+    "prefixes": [
+      "include"
+    ],
+    "description": "Inclui fonte ABL.",
+    "body": [
+      "{${1:arquivo.i}}",
+      "$0"
+    ]
+  },
+  {
+    "category": "Includes e preprocessador",
+    "prefixes": [
+      "includeargs"
+    ],
+    "description": "Include com argumento nomeado.",
+    "body": [
+      "{${1:arquivo.i} &${2:argumento} = \"${3:valor}\"}",
+      "$0"
+    ]
+  },
+  {
+    "category": "Includes e preprocessador",
+    "prefixes": [
+      "scopeddefine",
+      "&scoped-define"
+    ],
+    "description": "Constante de preprocessador no escopo atual.",
+    "body": [
+      "&SCOPED-DEFINE ${1:NOME} ${2:valor}",
+      "$0"
+    ]
+  },
+  {
+    "category": "Includes e preprocessador",
+    "prefixes": [
+      "globaldefine",
+      "&global-define"
+    ],
+    "description": "Constante global de preprocessador.",
+    "body": [
+      "&GLOBAL-DEFINE ${1:NOME} ${2:valor}",
+      "$0"
+    ]
+  },
+  {
+    "category": "Includes e preprocessador",
+    "prefixes": [
+      "preif",
+      "&if"
+    ],
+    "description": "Compilação condicional.",
+    "body": [
+      "&IF DEFINED(${1:NOME}) > 0 &THEN",
+      "    $0",
+      "&ELSE",
+      "    /* alternativa */",
+      "&ENDIF"
+    ]
+  }
+]
