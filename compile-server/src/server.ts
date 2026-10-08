@@ -268,7 +268,7 @@ app.post('/compile', async (req: Request, res: Response) => {
         const machineNameRaw = req.body.machineName ?? undefined;
         const machineName: string = typeof machineNameRaw === 'string' && machineNameRaw.trim() !== ''
             ? machineNameRaw.trim()
-            : 'unknown';
+            : '';
         const patchInfo = req.body.patchInfo; // { patchVersion: string, subType: string }
 
         if (!files || !Array.isArray(files)) {
@@ -282,6 +282,17 @@ app.post('/compile', async (req: Request, res: Response) => {
             serverConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         } else {
             logger.warn('Config', `Arquivo server.config.json não encontrado`, { configPath });
+        }
+
+        // A extensão atual envia os.hostname() no campo machineName.
+        if (!machineName) {
+            const message = 'Atualização obrigatória do Progress Compiler Tools. ' +
+                'Link para atualização: https://marketplace.visualstudio.com/items?itemName=douglasbarbosa.progress-compiler-tools ' +
+                'No VS Code, abra Extensões (Ctrl+Shift+X), pesquise @id:douglasbarbosa.progress-compiler-tools ' +
+                'e clique em Atualizar (ou Instalar, se ainda não estiver instalada). ' +
+                'Recarregue a janela e envie a compilação novamente.';
+            logger.warn('API', 'Cliente sem hostname: atualização obrigatória', { ip: req.ip });
+            return res.status(426).json({ status: 'error', code: 'CLIENT_UPDATE_REQUIRED', message });
         }
 
         // Resolve o repositório: prioriza o valor enviado pelo cliente, depois o padrão do config, e por último EMS2.08
